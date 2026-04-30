@@ -111,6 +111,8 @@
     }
 
     .main-grid {
+      position: relative;
+      z-index: 2;
       display: grid;
       grid-template-columns: minmax(420px, 0.82fr) minmax(0, 1.18fr);
       gap: 18px;
@@ -195,6 +197,11 @@
     .input-panel,
     .logs-panel {
       min-width: 0;
+    }
+
+    .logs-panel {
+      position: relative;
+      z-index: 1;
     }
 
     .results-panel {
@@ -317,6 +324,67 @@
 
     .prompt-area textarea {
       min-height: 236px;
+    }
+
+    .custom-size-picker {
+      position: relative;
+    }
+
+    .custom-size-suggestions {
+      position: absolute;
+      z-index: 20;
+      left: 0;
+      right: 0;
+      top: calc(100% + 6px);
+      max-height: 220px;
+      overflow: auto;
+      padding: 6px;
+      border: 1px solid rgba(125, 211, 252, 0.2);
+      border-radius: var(--radius);
+      background: rgba(9, 14, 24, 0.96);
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.38);
+      backdrop-filter: blur(18px);
+    }
+
+    .custom-size-suggestions[hidden] {
+      display: none;
+    }
+
+    .custom-size-option {
+      width: 100%;
+      min-height: 38px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 5px;
+      padding: 10px 12px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .custom-size-option:hover {
+      background: rgba(125, 211, 252, 0.12);
+    }
+
+    .custom-size-option strong {
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.25;
+      white-space: nowrap;
+    }
+
+    .custom-size-option span {
+      display: block;
+      width: 100%;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
 
     .ratio-grid {
@@ -1168,7 +1236,10 @@
               </div>
               <div class="field" id="customSizeField" style="display: none;">
                 <label for="customSize">自定义尺寸</label>
-                <input id="customSize" type="text" placeholder="例 1024x1024" />
+                <div class="custom-size-picker">
+                  <input id="customSize" type="text" placeholder="例 1024x1024" autocomplete="off" />
+                  <div id="customSizeSuggestions" class="custom-size-suggestions" hidden></div>
+                </div>
               </div>
               <div class="field">
                 <label for="quality">画质</label>
@@ -1307,6 +1378,80 @@
       return acc;
     }, {});
 
+    // dimension helpers:start
+    function parseDimensionString(value) {
+      const normalized = String(value ?? "").trim().toLowerCase().replace(/\s+/g, "");
+      const match = normalized.match(/^(\d+)(?:x|\*|×)(\d+)$/);
+      if (!match) return null;
+
+      const width = parseInt(match[1], 10);
+      const height = parseInt(match[2], 10);
+      if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
+
+      return { width, height, value: `${width}x${height}` };
+    }
+
+    function normalizeCustomSize(value) {
+      const parsed = parseDimensionString(value);
+      if (!parsed) return "";
+
+      let w = parsed.width;
+      let h = parsed.height;
+      let origRatio = w / h;
+
+      if (origRatio > 3) {
+        w = h * 3;
+        origRatio = 3;
+      } else if (1 / origRatio > 3) {
+        h = w * 3;
+        origRatio = 1 / 3;
+      }
+
+      const px = w * h;
+      if (px < 655360) {
+        const scale = Math.sqrt(655360 / px);
+        w *= scale;
+        h *= scale;
+      } else if (px > 8294400) {
+        const scale = Math.sqrt(8294400 / px);
+        w *= scale;
+        h *= scale;
+      }
+
+      if (w > 3840) {
+        w = 3840;
+        h = w / origRatio;
+      }
+      if (h > 3840) {
+        h = 3840;
+        w = h * origRatio;
+      }
+
+      let w16 = Math.round(w / 16) * 16;
+      let h16 = Math.round(h / 16) * 16;
+
+      if (w16 * h16 > 8294400) {
+        w16 = Math.floor(w / 16) * 16;
+        h16 = Math.floor(h / 16) * 16;
+      }
+
+      if (w16 * h16 < 655360) {
+        w16 = Math.ceil(w / 16) * 16;
+        h16 = Math.ceil(h / 16) * 16;
+      }
+
+      if (w16 > 3840) w16 = 3840;
+      if (h16 > 3840) h16 = 3840;
+      if (w16 < 16) w16 = 16;
+      if (h16 < 16) h16 = 16;
+
+      while (w16 / h16 > 3) w16 -= 16;
+      while (h16 / w16 > 3) h16 -= 16;
+
+      return `${w16}x${h16}`;
+    }
+    // dimension helpers:end
+
     const els = {
       model: document.getElementById("model"),
       ratioField: document.getElementById("ratioField"),
@@ -1315,6 +1460,7 @@
       size: document.getElementById("size"),
       customSizeField: document.getElementById("customSizeField"),
       customSize: document.getElementById("customSize"),
+      customSizeSuggestions: document.getElementById("customSizeSuggestions"),
       quality: document.getElementById("quality"),
       outputFormat: document.getElementById("outputFormat"),
       concurrency: document.getElementById("concurrency"),
@@ -1426,6 +1572,12 @@
       });
 
       els.customSize.addEventListener("blur", fixCustomSize);
+      els.customSize.addEventListener("focus", showCustomSizeSuggestions);
+      els.customSize.addEventListener("click", showCustomSizeSuggestions);
+      els.customSize.addEventListener("input", showCustomSizeSuggestions);
+      document.addEventListener("click", event => {
+        if (!els.customSizeField.contains(event.target)) hideCustomSizeSuggestions();
+      });
       els.model.addEventListener("change", updateModelVisibility);
       updateModelVisibility();
     }
@@ -1471,71 +1623,72 @@
           }
         }
       }
+      hideCustomSizeSuggestions();
     }
 
     function fixCustomSize() {
-      let val = els.customSize.value.trim().toLowerCase().replace(/\s+/g, '');
-      if (!val) return;
-      const match = val.match(/^(\d+)[x\*](\d+)$/);
-      if (!match) {
-        els.customSize.value = "";
+      if (!els.customSize.value.trim()) return;
+      els.customSize.value = normalizeCustomSize(els.customSize.value);
+    }
+
+    function getReferenceSizeOptions() {
+      return uploadedImages
+        .map((item, index) => {
+          const parsed = parseDimensionString(item.dimensions);
+          if (!parsed) return null;
+
+          const corrected = normalizeCustomSize(item.dimensions);
+          if (!corrected) return null;
+
+          return {
+            index,
+            name: item.name || `参考图 ${index + 1}`,
+            original: parsed.value,
+            corrected
+          };
+        })
+        .filter(Boolean);
+    }
+
+    function showCustomSizeSuggestions() {
+      const fieldVisible = els.customSizeField.style.display !== "none";
+      if (!fieldVisible || els.customSize.disabled) {
+        hideCustomSizeSuggestions();
         return;
       }
-      let w = parseInt(match[1]);
-      let h = parseInt(match[2]);
 
-      let origRatio = w / h;
-
-      if (origRatio > 3) {
-        w = h * 3;
-        origRatio = 3;
-      } else if (1 / origRatio > 3) {
-        h = w * 3;
-        origRatio = 1 / 3;
+      const options = getReferenceSizeOptions();
+      if (!options.length) {
+        hideCustomSizeSuggestions();
+        return;
       }
 
-      let px = w * h;
-      if (px < 655360) {
-        let scale = Math.sqrt(655360 / px);
-        w = w * scale;
-        h = h * scale;
-      } else if (px > 8294400) {
-        let scale = Math.sqrt(8294400 / px);
-        w = w * scale;
-        h = h * scale;
-      }
+      els.customSizeSuggestions.innerHTML = options.map(option => {
+        const sizeLabel = option.original === option.corrected
+          ? option.original
+          : `${option.original} → ${option.corrected}`;
+        return `
+          <button class="custom-size-option" type="button" data-size="${escapeHtml(option.corrected)}">
+            <strong>${escapeHtml(`参考图 ${option.index + 1}`)}</strong>
+            <span>${escapeHtml(sizeLabel)}</span>
+          </button>
+        `;
+      }).join("");
 
-      if (w > 3840) {
-        w = 3840;
-        h = w / origRatio;
-      }
-      if (h > 3840) {
-        h = 3840;
-        w = h * origRatio;
-      }
+      els.customSizeSuggestions.querySelectorAll(".custom-size-option").forEach(button => {
+        button.addEventListener("pointerdown", event => {
+          event.preventDefault();
+          els.customSize.value = button.dataset.size;
+          hideCustomSizeSuggestions();
+          els.customSize.focus();
+        });
+      });
 
-      let w16 = Math.round(w / 16) * 16;
-      let h16 = Math.round(h / 16) * 16;
+      els.customSizeSuggestions.hidden = false;
+    }
 
-      if (w16 * h16 > 8294400) {
-        w16 = Math.floor(w / 16) * 16;
-        h16 = Math.floor(h / 16) * 16;
-      }
-
-      if (w16 * h16 < 655360) {
-        w16 = Math.ceil(w / 16) * 16;
-        h16 = Math.ceil(h / 16) * 16;
-      }
-
-      if (w16 > 3840) w16 = 3840;
-      if (h16 > 3840) h16 = 3840;
-      if (w16 < 16) w16 = 16;
-      if (h16 < 16) h16 = 16;
-
-      while (w16 / h16 > 3) w16 -= 16;
-      while (h16 / w16 > 3) h16 -= 16;
-
-      els.customSize.value = `${w16}x${h16}`;
+    function hideCustomSizeSuggestions() {
+      els.customSizeSuggestions.hidden = true;
     }
 
     function updateKeyState() {
@@ -1775,6 +1928,7 @@
         });
       });
       updateStatusText();
+      if (!els.customSizeSuggestions.hidden) showCustomSizeSuggestions();
     }
 
     function summarizePayload(payload) {
