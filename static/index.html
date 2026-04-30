@@ -99,6 +99,7 @@
 
     .top-actions {
       display: flex;
+      align-items: center;
       gap: 10px;
       flex-wrap: wrap;
       justify-content: flex-end;
@@ -117,23 +118,78 @@
       min-height: clamp(420px, calc(100vh - 250px), 760px);
     }
 
-    .command-bar .section {
-      display: grid;
-      gap: 14px;
+    .command-field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      min-width: 0;
     }
 
-    .command-top {
+    .command-field label {
+      margin: 0;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+    }
+
+    .command-field select,
+    .command-field input {
+      height: 38px;
+    }
+
+    .command-field--model {
+      width: 260px;
+      flex: 0 0 260px;
+    }
+
+    .command-field--concurrency {
+      width: 96px;
+      flex-shrink: 0;
+    }
+
+    .command-settings {
       display: grid;
-      grid-template-columns: minmax(220px, 0.9fr) minmax(160px, 0.55fr) auto auto;
-      gap: 12px;
+      grid-template-columns: 260px 96px;
       align-items: end;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .command-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .command-actions .btn {
+      min-height: 38px;
     }
 
     .command-status {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       flex-wrap: wrap;
+    }
+
+    .prompt-toolbar {
+      display: flex;
+      align-items: end;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
 
     .input-panel,
@@ -148,7 +204,7 @@
       contain: size;
     }
 
-    .results-panel > .section {
+    .results-panel>.section {
       flex: 1;
       display: flex;
       flex-direction: column;
@@ -263,6 +319,70 @@
       min-height: 236px;
     }
 
+    .ratio-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .ratio-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 4px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.04);
+      cursor: pointer;
+      transition: all 0.18s ease;
+      user-select: none;
+    }
+
+    .ratio-item:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+
+    .ratio-item.active {
+      background: rgba(20, 184, 166, 0.15);
+      border-color: var(--teal);
+      box-shadow: 0 0 0 1px var(--teal);
+    }
+
+    .ratio-visual-container {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    .ratio-visual {
+      border: 1.5px solid currentColor;
+      border-radius: 2px;
+      background: rgba(20, 184, 166, 0.1);
+      transition: all 0.18s ease;
+    }
+
+    .ratio-item.active .ratio-visual {
+      background: var(--teal);
+      border-color: #fff;
+    }
+
+    .ratio-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    .ratio-item.active .ratio-label {
+      color: var(--text);
+    }
+
     .btn {
       display: inline-flex;
       align-items: center;
@@ -370,22 +490,28 @@
     }
 
     .thumb {
-      position: relative;
-      aspect-ratio: 1;
+      display: flex;
+      flex-direction: column;
       overflow: hidden;
       border-radius: var(--radius);
       border: 1px solid rgba(255, 255, 255, 0.12);
       background: rgba(255, 255, 255, 0.06);
     }
 
-    .thumb img {
+    .thumb-img {
+      position: relative;
+      aspect-ratio: 1;
+      overflow: hidden;
+    }
+
+    .thumb-img img {
       width: 100%;
       height: 100%;
       object-fit: cover;
       display: block;
     }
 
-    .thumb button {
+    .thumb-img button {
       position: absolute;
       right: 5px;
       top: 5px;
@@ -395,6 +521,19 @@
       border-radius: 50%;
       background: rgba(3, 7, 18, 0.72);
       cursor: pointer;
+    }
+
+    .thumb-label {
+      padding: 4px 6px;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--muted);
+      text-align: center;
+      background: rgba(0, 0, 0, 0.28);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.4;
     }
 
     .control-row {
@@ -812,10 +951,6 @@
         contain: none;
       }
 
-      .command-top {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
       .logs {
         grid-template-columns: 1fr;
       }
@@ -860,23 +995,40 @@
         grid-template-columns: 1fr;
       }
 
-      .command-top {
+      .command-status {
+        width: 100%;
+      }
+
+      .command-status .status-pill {
+        flex: 0 1 auto;
+      }
+
+      .command-settings {
         grid-template-columns: 1fr;
+        width: 100%;
+      }
+
+      .command-field--model,
+      .command-field--concurrency {
+        width: 100%;
+        min-width: 0;
+      }
+
+      .command-actions,
+      .command-actions .btn {
+        width: 100%;
+      }
+
+      .command-actions .btn {
+        flex: 1;
+      }
+
+      .top-actions .btn {
+        width: auto;
       }
 
       .section {
         padding: 14px;
-      }
-
-      .control-row {
-        align-items: stretch;
-      }
-
-      .control-row>div {
-        width: 100%;
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 10px;
       }
 
       .btn {
@@ -894,6 +1046,10 @@
         <p>工作台</p>
       </div>
       <div class="top-actions">
+        <div class="command-status">
+          <span class="status-pill"><span id="keyDot" class="dot"></span><span id="keyLabel">未配置</span></span>
+          <span class="status-pill"><span id="runDot" class="dot"></span><span id="runStatus">待开始</span></span>
+        </div>
         <a class="btn btn-blue" href="/settings" title="打开设置">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" />
@@ -911,68 +1067,62 @@
     </div>
 
     <div class="workspace">
-      <div class="panel command-bar">
-        <section class="section">
-          <div class="command-top">
-            <div class="field">
-              <label for="model">模型</label>
-              <select id="model">
-                <option value="gpt-image-2-flatfee">gpt-image-2-flatfee</option>
-                <option value="gpt-image-2-flatfee-4k">gpt-image-2-flatfee-4k</option>
-                <option value="gpt-image-2-flatfee-2k">gpt-image-2-flatfee-2k</option>
-                <option value="gpt-image-2-vip">gpt-image-2-vip</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="concurrency">并发数量</label>
-              <input id="concurrency" type="number" min="1" max="50" value="10" />
-            </div>
-            <button id="clearBtn" class="btn" type="button">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M3 6h18" />
-                <path d="M8 6V4h8v2" />
-                <path d="M19 6l-1 14H6L5 6" />
-              </svg>
-              清除日志
-            </button>
-            <button id="startBtn" class="btn btn-primary" type="button">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-              开始生成
-            </button>
-          </div>
-          <div class="control-row">
-            <div class="command-status">
-              <span class="status-pill"><span id="keyDot" class="dot"></span><span id="keyLabel">未配置</span></span>
-              <span class="status-pill"><span id="runDot" class="dot"></span><span id="runStatus">待开始</span></span>
-            </div>
-            <span id="galleryCount" class="status-pill">0 张结果</span>
-          </div>
-        </section>
-      </div>
-
       <div class="main-grid">
         <div class="panel input-panel">
           <section class="section prompt-area">
-            <div class="section-title">
-              <h2>提示词</h2>
+            <div class="prompt-toolbar">
+              <div class="command-settings">
+                <div class="command-field command-field--model">
+                  <label for="model">模型</label>
+                  <select id="model">
+                    <option value="gpt-image-2-flatfee">gpt-image-2-flatfee</option>
+                    <option value="gpt-image-2-flatfee-4k">gpt-image-2-flatfee-4k</option>
+                    <option value="gpt-image-2-flatfee-2k">gpt-image-2-flatfee-2k</option>
+                    <option value="gpt-image-2-vip">gpt-image-2-vip</option>
+                  </select>
+                </div>
+
+                <div class="command-field command-field--concurrency">
+                  <label for="concurrency">请求数量</label>
+                  <input id="concurrency" type="number" min="1" max="50" value="10" />
+                </div>
+              </div>
+
+              <div class="command-actions">
+                <button id="startBtn" class="btn btn-primary" type="button">
+                  <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                  开始生成
+                </button>
+              </div>
             </div>
-            <textarea id="prompt" placeholder="例如：一只在宇宙中漂浮的猫"></textarea>
+            <label class="sr-only" for="prompt">提示词</label>
+            <textarea id="prompt" placeholder="输入提示词，描述你想生成的画面..."></textarea>
           </section>
 
           <section class="section">
             <div class="section-title" style="display: flex; align-items: center; justify-content: space-between;">
               <h2>参考图</h2>
             </div>
-            
-            <div class="upload-tabs" style="display: flex; gap: 8px; margin-bottom: 12px; background: rgba(255,255,255,0.04); padding: 4px; border-radius: 10px; width: fit-content;">
-              <button type="button" class="btn btn-small tab-btn" id="tabUploadBtn" style="background: var(--surface); color: var(--text); border: none;">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+
+            <div class="upload-tabs"
+              style="display: flex; gap: 8px; margin-bottom: 12px; background: rgba(255,255,255,0.04); padding: 4px; border-radius: 10px; width: fit-content;">
+              <button type="button" class="btn btn-small tab-btn" id="tabUploadBtn"
+                style="background: var(--surface); color: var(--text); border: none;">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
                 本地上传
               </button>
-              <button type="button" class="btn btn-small tab-btn" id="tabUrlBtn" style="background: transparent; color: var(--muted); border: none;">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              <button type="button" class="btn btn-small tab-btn" id="tabUrlBtn"
+                style="background: transparent; color: var(--muted); border: none;">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                </svg>
                 网络链接
               </button>
             </div>
@@ -993,7 +1143,8 @@
             <div id="urlPanel" style="display: none;">
               <div style="font-size: 14px; margin-bottom: 8px; color: var(--muted);">输入图片链接</div>
               <div style="display: flex; gap: 10px; margin-bottom: 14px;">
-                <input id="urlInput" type="text" placeholder="https://example.com/input.png" style="flex: 1; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 10px 14px; color: var(--text); outline: none; font-size: 14px;" />
+                <input id="urlInput" type="text" placeholder="https://example.com/input.png"
+                  style="flex: 1; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 10px 14px; color: var(--text); outline: none; font-size: 14px;" />
                 <button type="button" class="btn btn-ghost" id="addUrlBtn" style="white-space: nowrap;">添加链接</button>
               </div>
               <div id="urlStatus" style="font-size: 13px; color: var(--muted);">暂未添加链接图片</div>
@@ -1007,9 +1158,9 @@
               <h2>生成参数</h2>
             </div>
             <div class="settings-grid">
-              <div class="field" id="ratioField">
-                <label for="ratio">比例筛选</label>
-                <select id="ratio"></select>
+              <div class="field full" id="ratioField">
+                <label>比例筛选</label>
+                <div id="ratioGrid" class="ratio-grid"></div>
               </div>
               <div class="field" id="sizeField">
                 <label for="size">尺寸</label>
@@ -1029,14 +1180,6 @@
                 </select>
               </div>
               <div class="field">
-                <label for="background">背景</label>
-                <select id="background">
-                  <option value="">默认</option>
-                  <option value="transparent">transparent</option>
-                  <option value="opaque">opaque</option>
-                </select>
-              </div>
-              <div class="field">
                 <label for="outputFormat">输出格式</label>
                 <select id="outputFormat">
                   <option value="">默认</option>
@@ -1053,7 +1196,10 @@
           <section class="section">
             <div class="section-title">
               <h2>生成结果</h2>
-              <button id="clearResultsBtn" class="btn btn-small" type="button">清空结果</button>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span id="galleryCount" class="status-pill">0 张结果</span>
+                <button id="clearResultsBtn" class="btn btn-small" type="button">清空结果</button>
+              </div>
             </div>
             <div class="result-browser">
               <div id="runList" class="run-list">
@@ -1075,6 +1221,14 @@
             <div>
               <div class="section-title">
                 <h2>系统日志</h2>
+                <button id="clearBtn" class="btn btn-small" type="button">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 6h18" />
+                    <path d="M8 6V4h8v2" />
+                    <path d="M19 6l-1 14H6L5 6" />
+                  </svg>
+                  清除日志
+                </button>
               </div>
               <div id="systemLog" class="logbox"></div>
             </div>
@@ -1156,13 +1310,12 @@
     const els = {
       model: document.getElementById("model"),
       ratioField: document.getElementById("ratioField"),
-      ratio: document.getElementById("ratio"),
+      ratioGrid: document.getElementById("ratioGrid"),
       sizeField: document.getElementById("sizeField"),
       size: document.getElementById("size"),
       customSizeField: document.getElementById("customSizeField"),
       customSize: document.getElementById("customSize"),
       quality: document.getElementById("quality"),
-      background: document.getElementById("background"),
       outputFormat: document.getElementById("outputFormat"),
       concurrency: document.getElementById("concurrency"),
       prompt: document.getElementById("prompt"),
@@ -1214,24 +1367,62 @@
       select.value = selected && values.includes(selected) ? selected : values[0];
     }
 
+    function renderRatioGrid(selected) {
+      els.ratioGrid.innerHTML = ratios.map(r => {
+        let visualStyle = "";
+        if (r === "custom") {
+          visualStyle = "width: 18px; height: 18px; border-style: dashed;";
+        } else {
+          const [w, h] = r.split(":").map(Number);
+          if (w >= h) {
+            visualStyle = `width: 24px; height: ${Math.round(24 * (h / w))}px;`;
+          } else {
+            visualStyle = `height: 24px; width: ${Math.round(24 * (w / h))}px;`;
+          }
+        }
+
+        const label = r === "custom" ? "自定义" : r;
+        const active = r === selected ? "active" : "";
+        return `
+          <div class="ratio-item ${active}" data-value="${r}">
+            <div class="ratio-visual-container">
+              <div class="ratio-visual" style="${visualStyle}"></div>
+            </div>
+            <span class="ratio-label">${label}</span>
+          </div>
+        `;
+      }).join("");
+
+      els.ratioGrid.querySelectorAll(".ratio-item").forEach(item => {
+        item.addEventListener("click", () => {
+          const val = item.dataset.value;
+          els.ratioGrid.dataset.value = val;
+          renderRatioGrid(val);
+          onRatioChange(val);
+        });
+      });
+      els.ratioGrid.dataset.value = selected;
+    }
+
+    function onRatioChange(val) {
+      if (val === "custom") {
+        els.sizeField.style.display = "none";
+        els.customSizeField.style.display = "";
+      } else {
+        els.sizeField.style.display = "";
+        els.customSizeField.style.display = "none";
+        const available = ratioToSizes[val] || sizes;
+        fillSelect(els.size, ["", ...available], els.size.value);
+      }
+    }
+
     function initLinkedSizeControls() {
-      fillSelect(els.ratio, ratios, "1:1");
+      renderRatioGrid("1:1");
       fillSelect(els.size, ["", ...ratioToSizes["1:1"]], "");
 
-      els.ratio.addEventListener("change", () => {
-        if (els.ratio.value === "custom") {
-          els.sizeField.style.display = "none";
-          els.customSizeField.style.display = "";
-        } else {
-          els.sizeField.style.display = "";
-          els.customSizeField.style.display = "none";
-          const available = ratioToSizes[els.ratio.value] || sizes;
-          fillSelect(els.size, ["", ...available], els.size.value);
-        }
-      });
-
       els.size.addEventListener("change", () => {
-        if (sizeToRatio[els.size.value]) els.ratio.value = sizeToRatio[els.size.value];
+        const r = sizeToRatio[els.size.value];
+        if (r) renderRatioGrid(r);
       });
 
       els.customSize.addEventListener("blur", fixCustomSize);
@@ -1245,33 +1436,33 @@
       const isCustomizable = model === "gpt-image-2-flatfee" || model === "gpt-image-2-vip";
 
       els.ratioField.style.display = isFixedSize ? "none" : "";
-      
+
       if (isFixedSize) {
         els.sizeField.style.display = "none";
         els.customSizeField.style.display = "";
-        
+
         if (els.customSize.dataset.cachedValue === undefined) {
           els.customSize.dataset.cachedValue = els.customSize.value;
         }
-        
+
         els.customSize.disabled = true;
         els.customSize.value = model === "gpt-image-2-flatfee-2k" ? "2048x1152" : "3840x2160";
         els.customSizeField.querySelector("label").textContent = "尺寸 (固定)";
       } else {
         els.customSize.disabled = false;
         els.customSizeField.querySelector("label").textContent = "自定义尺寸";
-        
+
         if (els.customSize.dataset.cachedValue !== undefined) {
           els.customSize.value = els.customSize.dataset.cachedValue;
           delete els.customSize.dataset.cachedValue;
         }
 
         if (!isCustomizable) {
-          if (els.ratio.value === "custom") els.ratio.value = "1:1";
+          if (els.ratioGrid.dataset.value === "custom") renderRatioGrid("1:1");
           els.sizeField.style.display = "";
           els.customSizeField.style.display = "none";
         } else {
-          if (els.ratio.value === "custom") {
+          if (els.ratioGrid.dataset.value === "custom") {
             els.sizeField.style.display = "none";
             els.customSizeField.style.display = "";
           } else {
@@ -1287,8 +1478,8 @@
       if (!val) return;
       const match = val.match(/^(\d+)[x\*](\d+)$/);
       if (!match) {
-         els.customSize.value = "";
-         return;
+        els.customSize.value = "";
+        return;
       }
       let w = parseInt(match[1]);
       let h = parseInt(match[2]);
@@ -1296,44 +1487,44 @@
       let origRatio = w / h;
 
       if (origRatio > 3) {
-          w = h * 3;
-          origRatio = 3;
+        w = h * 3;
+        origRatio = 3;
       } else if (1 / origRatio > 3) {
-          h = w * 3;
-          origRatio = 1 / 3;
+        h = w * 3;
+        origRatio = 1 / 3;
       }
 
       let px = w * h;
       if (px < 655360) {
-          let scale = Math.sqrt(655360 / px);
-          w = w * scale;
-          h = h * scale;
+        let scale = Math.sqrt(655360 / px);
+        w = w * scale;
+        h = h * scale;
       } else if (px > 8294400) {
-          let scale = Math.sqrt(8294400 / px);
-          w = w * scale;
-          h = h * scale;
+        let scale = Math.sqrt(8294400 / px);
+        w = w * scale;
+        h = h * scale;
       }
 
       if (w > 3840) {
-          w = 3840;
-          h = w / origRatio;
+        w = 3840;
+        h = w / origRatio;
       }
       if (h > 3840) {
-          h = 3840;
-          w = h * origRatio;
+        h = 3840;
+        w = h * origRatio;
       }
 
       let w16 = Math.round(w / 16) * 16;
       let h16 = Math.round(h / 16) * 16;
-      
+
       if (w16 * h16 > 8294400) {
-          w16 = Math.floor(w / 16) * 16;
-          h16 = Math.floor(h / 16) * 16;
+        w16 = Math.floor(w / 16) * 16;
+        h16 = Math.floor(h / 16) * 16;
       }
-      
+
       if (w16 * h16 < 655360) {
-          w16 = Math.ceil(w / 16) * 16;
-          h16 = Math.ceil(h / 16) * 16;
+        w16 = Math.ceil(w / 16) * 16;
+        h16 = Math.ceil(h / 16) * 16;
       }
 
       if (w16 > 3840) w16 = 3840;
@@ -1479,6 +1670,15 @@
       return pixels[offset] * 0.299 + pixels[offset + 1] * 0.587 + pixels[offset + 2] * 0.114;
     }
 
+    function getImageDimensions(src) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve(`${img.naturalWidth}\u00d7${img.naturalHeight}`);
+        img.onerror = () => resolve("");
+        img.src = src;
+      });
+    }
+
     async function uploadFiles(files) {
       const r2 = getR2Config();
       if (!r2) {
@@ -1514,9 +1714,11 @@
 
         const cached = getCachedReferenceImage(hash);
         if (cached) {
-          uploadedImages.push({ url: cached.url, name: file.name, preview, hash, cached: true });
+          const entry = { url: cached.url, name: file.name, preview, hash, cached: true, dimensions: "" };
+          uploadedImages.push(entry);
           logSystem(`参考图命中本地缓存，跳过上传: ${file.name}`);
           renderThumbs();
+          getImageDimensions(preview).then(dims => { entry.dimensions = dims; renderThumbs(); });
           els.uploadStatus.textContent = `上传中 ${i + 1}/${list.length}`;
           continue;
         }
@@ -1529,10 +1731,12 @@
           const response = await fetch("/api/upload-image", { method: "POST", body: form });
           const data = await response.json();
           if (!response.ok) throw new Error(data.detail || "上传失败");
-          uploadedImages.push({ url: data.url, name: file.name, preview, hash, cached: false });
+          const entry = { url: data.url, name: file.name, preview, hash, cached: false, dimensions: "" };
+          uploadedImages.push(entry);
           cacheReferenceImage(hash, data.url, file.name);
           logSystem(`参考图已上传: ${file.name}`);
           renderThumbs();
+          getImageDimensions(preview).then(dims => { entry.dimensions = dims; renderThumbs(); });
         } catch (error) {
           URL.revokeObjectURL(preview);
           logSystem(`参考图上传失败: ${file.name} ${error.message}`);
@@ -1545,11 +1749,14 @@
     function renderThumbs() {
       els.thumbs.innerHTML = uploadedImages.map((item, index) => `
         <div class="thumb">
-          <img src="${item.preview}" alt="${item.name}" loading="lazy" />
-          <button type="button" title="删除" data-index="${index}">×</button>
+          <div class="thumb-img">
+            <img src="${item.preview}" alt="${item.name}" loading="lazy" />
+            <button type="button" title="\u5220\u9664" data-index="${index}">&times;</button>
+          </div>
+          <span class="thumb-label">${item.dimensions || '\u8bfb\u53d6\u4e2d\u2026'}</span>
         </div>
       `).join("");
-      
+
       const updateStatusText = () => {
         const count = uploadedImages.length;
         els.uploadStatus.textContent = count ? `已准备 ${count} 张参考图` : "未上传参考图";
@@ -1575,7 +1782,6 @@
       return [
         payload.size || "默认尺寸",
         payload.quality || "默认画质",
-        payload.background || "默认背景",
         payload.output_format || "默认格式",
         refs,
         `并发 ${payload.concurrency}`
@@ -1835,18 +2041,18 @@
       setRunState("busy", "提交中");
 
       let finalSize = els.size.value;
-      let finalRatio = els.ratio.value;
+      let finalRatio = els.ratioGrid.dataset.value || "1:1";
 
       if (finalRatio === "custom") {
         finalRatio = "";
         if (!els.customSize.value) {
-            logSystem("请输入自定义尺寸。");
-            setRunState("", "待开始");
-            return;
+          logSystem("请输入自定义尺寸。");
+          setRunState("", "待开始");
+          return;
         }
       }
 
-      if ((model === "gpt-image-2-flatfee" || model === "gpt-image-2-vip") && els.customSize.value && els.ratio.value === "custom") {
+      if ((model === "gpt-image-2-flatfee" || model === "gpt-image-2-vip") && els.customSize.value && els.ratioGrid.dataset.value === "custom") {
         fixCustomSize();
         if (els.customSize.value) finalSize = els.customSize.value;
       }
@@ -1863,7 +2069,6 @@
         size: finalSize,
         ratio: finalRatio,
         quality: els.quality.value,
-        background: els.background.value,
         output_format: els.outputFormat.value,
         concurrency,
         image_urls: getImageUrls()
@@ -1925,9 +2130,9 @@
       } else if (event.type === "result") {
         logSystem(`任务 ${event.idx} 成功，耗时 ${event.duration}s`);
         const imagesToAdding = (event.images || event.urls || []).map(img => {
-            const i = typeof img === "string" ? { url: img } : img;
-            if (event.duration) i.duration = event.duration;
-            return i;
+          const i = typeof img === "string" ? { url: img } : img;
+          if (event.duration) i.duration = event.duration;
+          return i;
         });
         addGalleryImages(imagesToAdding, event.idx, group);
       } else if (event.type === "error") {
@@ -1985,18 +2190,21 @@
         const url = els.urlInput.value.trim();
         if (!url) return;
         if (!url.startsWith("http://") && !url.startsWith("https://")) {
-            logSystem("请输入有效的图片链接 (以 http/https 开头)。");
-            return;
+          logSystem("请输入有效的图片链接 (以 http/https 开头)。");
+          return;
         }
-        
-        uploadedImages.push({
-          url: url,
+
+        const entry = {
+          url,
           name: url.split("/").pop() || "网络链接",
           preview: url,
           size: 0,
-          cached: true
-        });
+          cached: true,
+          dimensions: ""
+        };
+        uploadedImages.push(entry);
         renderThumbs();
+        getImageDimensions(url).then(dims => { entry.dimensions = dims; renderThumbs(); });
         els.urlInput.value = "";
       });
     }

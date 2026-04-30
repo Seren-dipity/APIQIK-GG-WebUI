@@ -49,7 +49,7 @@ class GenerateRequest(BaseModel):
     size: str | None = None
     ratio: str = "1:1"
     quality: str | None = None
-    background: str | None = None
+    quality: str | None = None
     output_format: str | None = None
     concurrency: int = 10
     image_urls: list[str] = Field(default_factory=list)
@@ -229,7 +229,13 @@ async def _run_batch(task_id: str, req: GenerateRequest):
         clean = "".join(c if c.isalnum() else "_" for c in req.prompt[:30])
         ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
         base_name = f"{clean}_{ts}_{idx + 1}"
-        output_path = OUTPUT_DIR / f"{base_name}.png"
+
+        # 根据 output_format 决定后缀
+        ext = req.output_format.lower() if req.output_format else "png"
+        if ext not in ["png", "jpeg", "webp", "jpg"]:
+            ext = "png"
+        
+        output_path = OUTPUT_DIR / f"{base_name}.{ext}"
 
         # 防止极低概率的文件名冲突
         counter = 1
@@ -245,7 +251,6 @@ async def _run_batch(task_id: str, req: GenerateRequest):
                 size=req.size,
                 ratio=req.ratio,
                 quality=req.quality,
-                background=req.background,
                 output_format=req.output_format,
                 image_urls=req.image_urls,
                 base_url=req.base_url or api_core.DEFAULT_BASE_URL,
