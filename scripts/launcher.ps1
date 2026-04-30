@@ -1,5 +1,5 @@
 $ErrorActionPreference = "Stop"
-Set-Location -LiteralPath $PSScriptRoot
+Set-Location -LiteralPath (Split-Path -Parent $PSScriptRoot)
 
 Write-Host ""
 Write-Host "APIQIK Image Generation Launcher" -ForegroundColor Cyan
