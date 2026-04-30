@@ -11,7 +11,7 @@
 **第一步：下载代码**
 如果你懂 Git，可以在终端执行：
 ```bash
-git clone https://github.com/你的用户名/你的仓库名.git
+git clone https://github.com/Seren-dipity/APIQIK-GG-WebUI.git
 ```
 *(或直接点击网页上的绿色按钮 `Code` -> `Download ZIP`，下载后解压出来即可)*
 
