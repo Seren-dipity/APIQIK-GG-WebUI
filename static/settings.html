@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>APIQIK 密钥配置</title>
+  <meta name="description" content="配置 APIQIK 图像生成所需的 API 密钥和 Cloudflare R2 存储信息" />
+  <link rel="icon"
+    href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="%2307070f"/><path d="M18 34h28v16H18z" fill="%233b82f6"/><path d="M24 34V24a8 8 0 0 1 16 0v10" fill="none" stroke="%2306b6d4" stroke-width="5"/></svg>' />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #07070f;
+      --surface: rgba(255, 255, 255, 0.04);
+      --border: rgba(59, 130, 246, 0.25);
+      --border-h: rgba(59, 130, 246, 0.6);
+      --accent: #3b82f6;
+      --accent2: #06b6d4;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --success: #10b981;
+      --error: #f87171;
+      --radius: 16px;
+      --glow: 0 0 30px rgba(59, 130, 246, 0.15);
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px 80px;
+      background-image:
+        radial-gradient(ellipse 80% 50% at 20% 10%, rgba(59, 130, 246, 0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 80%, rgba(6, 182, 212, 0.08) 0%, transparent 60%);
+    }
+
+    /* ── 顶部导航 ── */
+    .nav {
+      width: 100%;
+      max-width: 760px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 40px;
+    }
+
+    .nav-back {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color .2s;
+    }
+
+    .nav-back:hover {
+      color: var(--text);
+    }
+
+    .nav-back svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .nav-title {
+      font-size: 18px;
+      font-weight: 600;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* ── 卡片 ── */
+    .card {
+      width: 100%;
+      max-width: 760px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 32px;
+      backdrop-filter: blur(20px);
+      box-shadow: var(--glow);
+      margin-bottom: 20px;
+      transition: border-color .2s;
+    }
+
+    .card:hover {
+      border-color: var(--border-h);
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-title svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* ── 表单行 ── */
+    .field {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .field:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .field:first-of-type {
+      padding-top: 0;
+    }
+
+    .field-label {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .field-hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .field-input-wrap {
+      position: relative;
+    }
+
+    .field input {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 10px 44px 10px 14px;
+      font-size: 14px;
+      font-family: 'Inter', monospace;
+      color: var(--text);
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+
+    .field input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+
+    .field input::placeholder {
+      color: rgba(148, 163, 184, 0.5);
+    }
+
+    /* 密钥显示/隐藏按钮 */
+    .toggle-vis {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      padding: 2px;
+      transition: color .2s;
+    }
+
+    .toggle-vis:hover {
+      color: var(--text);
+    }
+
+    .toggle-vis svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* ── 操作按钮区 ── */
+    .actions {
+      width: 100%;
+      max-width: 760px;
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      margin-top: 8px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all .2s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #2563eb);
+      color: #fff;
+      box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 28px rgba(59, 130, 246, 0.55);
+    }
+
+    .btn-ghost {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--muted);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-ghost:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text);
+    }
+
+    /* ── 状态提示 ── */
+    .toast {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: var(--success);
+      padding: 12px 24px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      backdrop-filter: blur(12px);
+      transition: transform .3s ease, opacity .3s ease;
+      opacity: 0;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    .toast.error {
+      background: rgba(248, 113, 113, 0.15);
+      border-color: rgba(248, 113, 113, 0.4);
+      color: var(--error);
+    }
+
+    /* ── 分割线 ── */
+    .divider {
+      width: 100%;
+      max-width: 760px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.3), transparent);
+      margin: 4px 0 20px;
+    }
+
+    /* 必填标记 */
+    .required {
+      color: var(--accent);
+      margin-left: 2px;
+    }
+
+    /* 状态指示点 */
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 6px;
+    }
+
+    .status-dot.ok {
+      background: var(--success);
+      box-shadow: 0 0 6px var(--success);
+    }
+
+    .status-dot.bad {
+      background: var(--error);
+      box-shadow: 0 0 6px var(--error);
+    }
+
+    .status-dot.none {
+      background: var(--muted);
+    }
+
+    #status-bar {
+      width: 100%;
+      max-width: 760px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 20px;
+      backdrop-filter: blur(12px);
+      font-size: 13px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- 顶部导航 -->
+  <nav class="nav">
+    <a href="/" class="nav-back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M19 12H5M5 12l7 7M5 12l7-7" />
+      </svg>
+      返回主页
+    </a>
+    <span class="nav-title">⚙ 密钥配置</span>
+    <div style="width:80px"></div>
+  </nav>
+
+  <!-- 配置状态栏 -->
+  <div id="status-bar">
+    <span class="status-item"><span id="dot-api" class="status-dot none"></span>APIQIK Key</span>
+    <span class="status-item"><span id="dot-vip-api" class="status-dot none"></span>APIQIK VIP Key</span>
+    <span class="status-item"><span id="dot-r2" class="status-dot none"></span>Cloudflare R2</span>
+    <span style="margin-left:auto;font-size:12px;">配置储存在浏览器本地，不会上传至服务器</span>
+  </div>
+
+  <!-- APIQIK 配置 -->
+  <div class="card">
+    <div class="card-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="11" width="18" height="11" rx="2" />
+        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+      </svg>
+      APIQIK 配置
+    </div>
+
+    <div class="field">
+      <div>
+        <div class="field-label">API Key <span class="required">*</span></div>
+        <div class="field-hint">图像生成接口鉴权密钥</div>
+      </div>
+      <div class="field-input-wrap">
+        <input id="apiqik_key" type="password" placeholder="sk-..." autocomplete="off" />
+        <button class="toggle-vis" data-target="apiqik_key" title="显示/隐藏">
+          <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="field">
+      <div>
+        <div class="field-label">VIP API Key</div>
+        <div class="field-hint">使用 gpt-image-2-vip 模型时调用</div>
+      </div>
+      <div class="field-input-wrap">
+        <input id="apiqik_vip_key" type="password" placeholder="sk-..." autocomplete="off" />
+        <button class="toggle-vis" data-target="apiqik_vip_key" title="显示/隐藏">
+          <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="field">
+      <div>
+        <div class="field-label">Base URL</div>
+        <div class="field-hint">留空使用默认地址</div>
+      </div>
+      <div class="field-input-wrap">
+        <input id="apiqik_base_url" type="text" placeholder="https://value.apiqik.online" />
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Cloudflare R2 配置 -->
+  <div class="card">
+    <div class="card-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="16 16 12 12 8 16" />
+        <line x1="12" y1="12" x2="12" y2="21" />
+        <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+      </svg>
+      Cloudflare R2 配置
+      <span
+        style="font-size:12px;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;margin-left:8px;">本地上传参考图时需要</span>
+    </div>
+
+    <div class="field">
+      <div>
+        <div class="field-label">Access Key ID</div>
+        <div class="field-hint">R2 API 令牌访问密钥 ID</div>
+      </div>
+      <div class="field-input-wrap">
+        <input id="cf_access_key" type="password" placeholder="Access Key ID" autocomplete="off" />
+        <button class="toggle-vis" data-target="cf_access_key" title="显示/隐藏">
+          <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="field">
+      <div>
+        <div class="field-label">Secret Access Key</div>
+        <div class="field-hint">R2 API 令牌密钥</div>
+      </div>
+      <div class="field-input-wrap">
+        <input id="cf_secret_key" type="password" placeholder="Secret Access Key" autocomplete="off" />
+        <button class="toggle-vis" data-target="cf_secret_key" title="显示/隐藏">
+          <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="field">
+      <div>
+        <div class="field-label">Account ID</div>
+        <div class="field-hint">Cloudflare 账户 ID</div>
+      </div>
+      <div class="field-input-wrap">
+        <input id="cf_account_id" type="text" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" />
+      </div>
+    </div>
+
+    <div class="field">
+      <div>
+        <div class="field-label">Bucket 名称</div>
+        <div class="field-hint">R2 存储桶名称</div>
+      </div>
+      <div class="field-input-wrap">
+        <input id="cf_bucket" type="text" placeholder="my-bucket" />
+      </div>
+    </div>
+
+    <div class="field">
+      <div>
+        <div class="field-label">公开访问 URL</div>
+        <div class="field-hint">R2 自定义域名或公开端点前缀</div>
+      </div>
+      <div class="field-input-wrap">
+        <input id="cf_public_url" type="text" placeholder="https://pub-xxx.r2.dev" />
+      </div>
+    </div>
+  </div>
+
+  <!-- 操作按钮 -->
+  <div class="actions">
+    <button class="btn btn-ghost" onclick="clearAll()">清除所有配置</button>
+    <button class="btn btn-primary" onclick="saveAll()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16">
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+      保存配置
+    </button>
+  </div>
+
+  <!-- Toast 提示 -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const KEYS = ['apiqik_key', 'apiqik_vip_key', 'apiqik_base_url', 'cf_access_key', 'cf_secret_key', 'cf_account_id', 'cf_bucket', 'cf_public_url'];
+
+    // 页面加载时从 localStorage 回填
+    function loadFromStorage() {
+      KEYS.forEach(k => {
+        const val = localStorage.getItem(k) || '';
+        const el = document.getElementById(k);
+        if (el) el.value = val;
+      });
+      updateStatusBar();
+    }
+
+    function updateStatusBar() {
+      const hasApiKey = !!localStorage.getItem('apiqik_key');
+      const hasVipApiKey = !!localStorage.getItem('apiqik_vip_key');
+      const r2Keys = ['cf_access_key', 'cf_secret_key', 'cf_account_id', 'cf_bucket', 'cf_public_url'];
+      const hasR2 = r2Keys.every(k => !!localStorage.getItem(k));
+
+      document.getElementById('dot-api').className = `status-dot ${hasApiKey ? 'ok' : 'bad'}`;
+      document.getElementById('dot-vip-api').className = `status-dot ${hasVipApiKey ? 'ok' : 'none'}`;
+      document.getElementById('dot-r2').className = `status-dot ${hasR2 ? 'ok' : (r2Keys.some(k => !!localStorage.getItem(k)) ? 'bad' : 'none')}`;
+    }
+
+    function saveAll() {
+      let hasError = false;
+
+      KEYS.forEach(k => {
+        const el = document.getElementById(k);
+        if (el) {
+          const val = el.value.trim();
+          if (val) {
+            localStorage.setItem(k, val);
+          } else {
+            localStorage.removeItem(k);
+          }
+        }
+      });
+
+      if (!localStorage.getItem('apiqik_key')) {
+        showToast('APIQIK Key 未填写，生成功能将无法使用', true);
+        hasError = true;
+      }
+
+      updateStatusBar();
+      if (!hasError) showToast('配置已保存到浏览器本地 ✓');
+    }
+
+    function clearAll() {
+      if (!confirm('确认清除所有已保存的配置？')) return;
+      KEYS.forEach(k => localStorage.removeItem(k));
+      KEYS.forEach(k => {
+        const el = document.getElementById(k);
+        if (el) el.value = '';
+      });
+      updateStatusBar();
+      showToast('配置已清除');
+    }
+
+    // 显示/隐藏密钥
+    document.querySelectorAll('.toggle-vis').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetId = btn.dataset.target;
+        const input = document.getElementById(targetId);
+        if (!input) return;
+        input.type = input.type === 'password' ? 'text' : 'password';
+      });
+    });
+
+    function showToast(msg, isError = false) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = `toast${isError ? ' error' : ''} show`;
+      setTimeout(() => el.classList.remove('show'), 3000);
+    }
+
+    loadFromStorage();
+  </script>
+</body>
+
+</html>
