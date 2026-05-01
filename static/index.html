@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 
 <head>
@@ -185,17 +185,17 @@
             </div>
 
             <div id="uploadPanel">
-              <div class="upload-provider-wrapper" style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <div class="upload-provider-wrapper"
+                style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
                 <div class="upload-provider" aria-label="本地上传图床" style="margin-bottom: 0;">
                   <label>
                     <input id="uploadProviderPublic" type="radio" name="uploadProvider" value="public" checked />
-                    <span>公共存储 (免配置)</span>
+                    <span>公共存储 (仅HuggingFace支持)</span>
                   </label>
                   <label>
                     <input id="uploadProviderR2" type="radio" name="uploadProvider" value="r2" />
                     <span>私有存储 (自定义)</span>
                   </label>
-                </div>
                 </div>
               </div>
               <p id="uploadProviderHint" class="upload-provider-hint">使用服务器提供的公共存储，图片将上传至管理员配置的 R2 存储桶。</p>
@@ -535,7 +535,7 @@
     let activeRunId = null;
     let uploadedImages = [];
     const imageHashCacheKey = "apiqik_image_hash_cache";
-    
+
 
     function fillSelect(select, values, selected) {
       select.innerHTML = values.map(value => {
@@ -702,7 +702,7 @@
       });
     }
 
-        function initModelPricingHelp() {
+    function initModelPricingHelp() {
       if (!els.modelPricingHelp || !els.modelPricingPopover) return;
 
       const setOpen = open => {
@@ -881,18 +881,18 @@
         : "使用服务器提供的公共存储，图片将上传至管理员配置的 R2 存储桶。";
     }
 
-          return token;
+    return token;
     }
 
-              return false;
+    return false;
     }
 
-          return true;
+    return true;
     }
 
               }
-      uploadedImages = uploadedImages.filter(item => !(item.provider === "image16" && ids.has(item.image_id)));
-      renderThumbs();
+    uploadedImages = uploadedImages.filter(item => !(item.provider === "image16" && ids.has(item.image_id)));
+    renderThumbs();
     }
 
     function parseImageProvider(url) {
@@ -907,7 +907,7 @@
     function getProxiedUrl(item) {
       if (!item) return "";
       if (item.preview && item.preview.startsWith('blob:')) return item.preview;
-      
+
       const { provider, image_id } = item.provider ? item : parseImageProvider(item.url);
       if (provider === "image16" && image_id) {
         return `/api/image-host/proxy/${image_id}`;
@@ -1014,7 +1014,7 @@
         const file = list[i];
         const preview = URL.createObjectURL(file);
 
-        
+
 
         let hash = "";
         try {
@@ -1093,7 +1093,7 @@
           if (removed?.preview && removed.preview.startsWith('blob:')) {
             URL.revokeObjectURL(removed.preview);
           }
-          
+
           renderThumbs();
         });
       });
