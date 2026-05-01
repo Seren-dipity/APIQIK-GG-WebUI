@@ -1103,6 +1103,252 @@
         width: 100%;
       }
     }
+
+    /* History Prompt Styles */
+    .prompt-input-wrapper {
+      position: relative;
+    }
+
+    .history-toggle-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: none;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      color: var(--muted);
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: background 0.18s, color 0.18s;
+      z-index: 5;
+    }
+
+    .history-toggle-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: var(--text);
+    }
+
+    .history-popover {
+      position: absolute;
+      top: 45px;
+      right: 10px;
+      width: 420px;
+      background: rgba(30, 30, 30, 0.96);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(12px);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .history-popover[hidden] {
+      display: none !important;
+    }
+
+    .history-tabs {
+      display: flex;
+      padding: 8px 16px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      background: transparent;
+      gap: 16px;
+    }
+
+    .history-tab {
+      padding: 10px 4px;
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.45);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      position: relative;
+      transition: color 0.18s;
+    }
+
+    .history-tab::after {
+      content: '';
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: transparent;
+      transition: background 0.18s;
+    }
+
+    .history-tab.active {
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    .history-tab.active::after {
+      background: #e4f5a3;
+    }
+
+    .history-search {
+      padding: 12px 16px;
+      position: relative;
+      border-bottom: none;
+    }
+
+    .history-search svg {
+      position: absolute;
+      left: 28px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      pointer-events: none;
+    }
+
+    .history-search input {
+      width: 100%;
+      height: 36px;
+      padding: 0 12px 0 32px;
+      background: rgba(255, 255, 255, 0.04);
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    .history-search input::placeholder {
+      color: rgba(255, 255, 255, 0.3);
+    }
+
+    .history-list {
+      max-height: 280px;
+      overflow-y: auto;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      scrollbar-width: thin;
+    }
+
+    .history-item {
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: background 0.18s;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .history-item:hover {
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .history-item-text {
+      flex: 1;
+      font-size: 13px;
+      line-height: 1.4;
+      color: var(--text);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      word-break: break-all;
+    }
+
+    .history-item-actions {
+      display: flex;
+      gap: 6px;
+      opacity: 0;
+      transition: opacity 0.18s;
+    }
+
+    .history-item:hover .history-item-actions {
+      opacity: 1;
+    }
+
+    .history-action-btn {
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      border-radius: 4px;
+    }
+
+    .history-action-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text);
+    }
+
+    .history-action-btn.star-active {
+      color: #e4f5a3;
+    }
+
+    .history-action-btn.delete-btn:hover {
+      color: var(--red);
+    }
+
+    .history-footer {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: transparent;
+      border-top: none;
+    }
+
+    .history-modal-content {
+      width: min(600px, 90vw);
+      max-height: 80vh;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .history-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .history-modal-header h3 {
+      margin: 0;
+      font-size: 16px;
+      color: var(--text);
+    }
+
+    .history-modal-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 0;
+    }
+
+    .history-modal-body .history-item {
+      padding: 12px 20px;
+    }
+
+    .history-modal-body .history-item-text {
+      -webkit-line-clamp: 3;
+    }
+
+    .empty-history {
+      padding: 30px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
   </style>
 </head>
 
@@ -1166,7 +1412,37 @@
               </div>
             </div>
             <label class="sr-only" for="prompt">提示词</label>
-            <textarea id="prompt" placeholder="输入提示词，描述你想生成的画面..."></textarea>
+            <div class="prompt-input-wrapper">
+              <textarea id="prompt" placeholder="输入提示词，描述你想生成的画面..."></textarea>
+              <button id="historyToggleBtn" class="history-toggle-btn" type="button" title="历史与收藏">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 6v6l4 2" />
+                </svg>
+              </button>
+              <div id="historyPopover" class="history-popover" hidden>
+                <div class="history-tabs">
+                  <button type="button" class="history-tab active" data-tab="recent">最近使用</button>
+                  <button type="button" class="history-tab" data-tab="favorites">我的收藏</button>
+                </div>
+                <div class="history-search">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  </svg>
+                  <input type="text" id="historySearchInput" placeholder="搜索记录..." autocomplete="off">
+                </div>
+                <div class="history-list" id="historyList">
+                  <!-- items injected via js -->
+                </div>
+                <div class="history-footer">
+                  <button type="button" id="historyClearBtn" class="btn btn-ghost btn-small"
+                    style="color: var(--muted); border: none; background: transparent; padding: 0 5px;">清除历史</button>
+                  <button type="button" id="historyMoreBtn" class="btn btn-ghost btn-small"
+                    style="color: var(--muted); border: none; background: transparent; padding: 0 5px;">查看更多</button>
+                </div>
+              </div>
+            </div>
           </section>
 
           <section class="section">
@@ -1317,6 +1593,28 @@
       </svg>
     </button>
     <img id="lightboxImage" alt="预览" />
+  </div>
+
+  <div id="historyModal" class="lightbox">
+    <div class="history-modal-content">
+      <div class="history-modal-header">
+        <h3>全部记录</h3>
+        <button id="closeHistoryModal" class="btn icon-btn" type="button" title="关闭"
+          style="border:none;background:transparent;width:32px;height:32px;color:var(--muted);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="history-tabs modal-tabs">
+        <button type="button" class="history-tab active" data-modal-tab="recent">最近使用</button>
+        <button type="button" class="history-tab" data-modal-tab="favorites">我的收藏</button>
+      </div>
+      <div class="history-modal-body" id="historyModalList">
+        <!-- items -->
+      </div>
+    </div>
   </div>
 
   <script>
@@ -2228,6 +2526,8 @@
         image_urls: getImageUrls()
       };
 
+      addPromptToHistory(prompt);
+
       let submittedRun = null;
       try {
         const response = await fetch("/api/generate", {
@@ -2363,10 +2663,221 @@
       });
     }
 
+    // --- History Prompt Logic Start ---
+    const historyState = {
+      popoverTab: 'recent',
+      modalTab: 'recent',
+      searchQuery: '',
+      history: JSON.parse(localStorage.getItem('apiqik_prompt_history') || '[]'),
+      favorites: JSON.parse(localStorage.getItem('apiqik_prompt_favorites') || '[]')
+    };
+
+    const histEls = {
+      toggleBtn: document.getElementById('historyToggleBtn'),
+      popover: document.getElementById('historyPopover'),
+      tabs: document.querySelectorAll('.history-tab[data-tab]'),
+      searchInput: document.getElementById('historySearchInput'),
+      list: document.getElementById('historyList'),
+      clearBtn: document.getElementById('historyClearBtn'),
+      moreBtn: document.getElementById('historyMoreBtn'),
+      modal: document.getElementById('historyModal'),
+      closeModalBtn: document.getElementById('closeHistoryModal'),
+      modalTabs: document.querySelectorAll('.history-tab[data-modal-tab]'),
+      modalList: document.getElementById('historyModalList')
+    };
+
+    function savePromptState() {
+      localStorage.setItem('apiqik_prompt_history', JSON.stringify(historyState.history));
+      localStorage.setItem('apiqik_prompt_favorites', JSON.stringify(historyState.favorites));
+    }
+
+    function addPromptToHistory(text) {
+      if (!text) return;
+      text = text.trim();
+      if (!text) return;
+      historyState.history = historyState.history.filter(item => item.text !== text);
+      historyState.history.unshift({ text, timestamp: Date.now() });
+      if (historyState.history.length > 100) {
+        historyState.history.pop();
+      }
+      savePromptState();
+      renderHistoryList();
+    }
+
+    window.toggleFavorite = function (text) {
+      const isFav = historyState.favorites.some(item => item.text === text);
+      if (isFav) {
+        historyState.favorites = historyState.favorites.filter(item => item.text !== text);
+      } else {
+        historyState.favorites.unshift({ text, timestamp: Date.now() });
+      }
+      savePromptState();
+      renderHistoryList();
+      renderModalList();
+    };
+
+    window.deleteHistoryItem = function (text, isFavorite) {
+      if (isFavorite) {
+        historyState.favorites = historyState.favorites.filter(item => item.text !== text);
+      } else {
+        historyState.history = historyState.history.filter(item => item.text !== text);
+      }
+      savePromptState();
+      renderHistoryList();
+      renderModalList();
+    };
+
+    function renderHistoryList() {
+      let data = historyState.popoverTab === 'recent' ? historyState.history : historyState.favorites;
+      if (historyState.searchQuery) {
+        const q = historyState.searchQuery.toLowerCase();
+        data = data.filter(item => item.text.toLowerCase().includes(q));
+      }
+
+      histEls.list.innerHTML = '';
+      if (data.length === 0) {
+        histEls.list.innerHTML = '<div class="empty-history">暂无记录</div>';
+        return;
+      }
+
+      data.forEach(item => {
+        const isFav = historyState.favorites.some(f => f.text === item.text);
+        const div = document.createElement('div');
+        div.className = 'history-item';
+        div.innerHTML = `
+          <div class="history-item-text" title="` + item.text.replace(/"/g, '&quot;') + `">` + escapeHtml(item.text) + `</div>
+          <div class="history-item-actions">
+            <button class="history-action-btn ` + (isFav ? 'star-active' : '') + `" title="` + (isFav ? '取消收藏' : '收藏') + `" onclick="event.stopPropagation(); window.toggleFavorite('` + item.text.replace(/'/g, "\\'") + `')">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="` + (isFav ? 'currentColor' : 'none') + `" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+              </svg>
+            </button>
+            <button class="history-action-btn delete-btn" title="删除" onclick="event.stopPropagation(); window.deleteHistoryItem('` + item.text.replace(/'/g, "\\'") + `', ` + (historyState.popoverTab === 'favorites') + `)">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
+          </div>
+        `;
+        div.addEventListener('click', () => {
+          els.prompt.value = item.text;
+          histEls.popover.hidden = true;
+        });
+        histEls.list.appendChild(div);
+      });
+    }
+
+    function renderModalList() {
+      let data = historyState.modalTab === 'recent' ? historyState.history : historyState.favorites;
+
+      histEls.modalList.innerHTML = '';
+      if (data.length === 0) {
+        histEls.modalList.innerHTML = '<div class="empty-history">暂无记录</div>';
+        return;
+      }
+
+      data.forEach(item => {
+        const isFav = historyState.favorites.some(f => f.text === item.text);
+        const dateStr = new Date(item.timestamp).toLocaleString();
+        const div = document.createElement('div');
+        div.className = 'history-item';
+        div.innerHTML = `
+          <div class="history-item-text" title="` + item.text.replace(/"/g, '&quot;') + `">
+            ` + escapeHtml(item.text) + `
+            <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">` + dateStr + `</div>
+          </div>
+          <div class="history-item-actions" style="opacity: 1;">
+            <button class="history-action-btn ` + (isFav ? 'star-active' : '') + `" title="` + (isFav ? '取消收藏' : '收藏') + `" onclick="event.stopPropagation(); window.toggleFavorite('` + item.text.replace(/'/g, "\\'") + `')">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="` + (isFav ? 'currentColor' : 'none') + `" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+              </svg>
+            </button>
+            <button class="history-action-btn delete-btn" title="删除" onclick="event.stopPropagation(); window.deleteHistoryItem('` + item.text.replace(/'/g, "\\'") + `', ` + (historyState.modalTab === 'favorites') + `)">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
+          </div>
+        `;
+        div.addEventListener('click', () => {
+          els.prompt.value = item.text;
+          histEls.modal.classList.remove('show');
+        });
+        histEls.modalList.appendChild(div);
+      });
+    }
+
+    function bindHistoryEvents() {
+      histEls.toggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        histEls.popover.hidden = !histEls.popover.hidden;
+        if (!histEls.popover.hidden) {
+          renderHistoryList();
+          histEls.searchInput.focus();
+        }
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!histEls.popover.contains(e.target) && !histEls.toggleBtn.contains(e.target)) {
+          histEls.popover.hidden = true;
+        }
+      });
+
+      histEls.searchInput.addEventListener('input', (e) => {
+        historyState.searchQuery = e.target.value;
+        renderHistoryList();
+      });
+
+      histEls.tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          histEls.tabs.forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          historyState.popoverTab = tab.dataset.tab;
+          renderHistoryList();
+        });
+      });
+
+      histEls.clearBtn.addEventListener('click', () => {
+        if (historyState.popoverTab === 'recent') {
+          historyState.history = [];
+        } else {
+          historyState.favorites = [];
+        }
+        savePromptState();
+        renderHistoryList();
+      });
+
+      histEls.moreBtn.addEventListener('click', () => {
+        histEls.popover.hidden = true;
+        histEls.modal.classList.add('show');
+        historyState.modalTab = historyState.popoverTab;
+        histEls.modalTabs.forEach(t => t.classList.toggle('active', t.dataset.modalTab === historyState.modalTab));
+        renderModalList();
+      });
+
+      histEls.modalTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          histEls.modalTabs.forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          historyState.modalTab = tab.dataset.modalTab;
+          renderModalList();
+        });
+      });
+
+      histEls.closeModalBtn.addEventListener('click', () => {
+        histEls.modal.classList.remove('show');
+      });
+      histEls.modal.addEventListener('click', (e) => {
+        if (e.target === histEls.modal) histEls.modal.classList.remove('show');
+      });
+    }
+    // --- History Prompt Logic End ---
+
     function init() {
       initLinkedSizeControls();
       updateKeyState();
       bindUpload();
+      bindHistoryEvents();
       els.startBtn.addEventListener("click", startGeneration);
       els.clearBtn.addEventListener("click", clearLogs);
       els.clearResultsBtn.addEventListener("click", clearResults);
