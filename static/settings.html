@@ -125,6 +125,44 @@
       height: 16px;
     }
 
+    summary.card-title {
+      cursor: pointer;
+      list-style: none;
+    }
+
+    summary.card-title::-webkit-details-marker {
+      display: none;
+    }
+
+    .optional-card .card-title::after {
+      content: "展开";
+      margin-left: auto;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    .optional-card[open] .card-title::after {
+      content: "收起";
+    }
+
+    .optional-card:not([open]) .card-title {
+      margin-bottom: 0;
+    }
+
+    .optional-badge {
+      padding: 2px 7px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
     /* ── 表单行 ── */
     .field {
       display: grid;
@@ -344,6 +382,151 @@
       display: flex;
       align-items: center;
     }
+
+    @media (max-width: 640px) {
+
+      html,
+      body {
+        width: 100%;
+        overflow-x: hidden;
+      }
+
+      body {
+        align-items: stretch;
+        padding: 14px 10px 88px;
+      }
+
+      .nav {
+        max-width: none;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        grid-template-rows: auto auto;
+        gap: 10px 12px;
+        align-items: center;
+        margin-bottom: 14px;
+      }
+
+      .nav-back {
+        min-height: 40px;
+      }
+
+      .nav-title {
+        justify-self: end;
+        font-size: 16px;
+      }
+
+      .theme-controls {
+        grid-column: 1 / -1;
+        display: grid !important;
+        grid-template-columns: 40px minmax(0, 1fr) 40px;
+        gap: 8px !important;
+        min-width: 0;
+      }
+
+      .theme-controls .btn {
+        min-height: 40px;
+      }
+
+      #theme-style-select {
+        width: 100% !important;
+        min-width: 0 !important;
+        height: 40px;
+        font-size: 13px !important;
+      }
+
+      #status-bar {
+        max-width: none;
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px 14px;
+        margin-bottom: 14px;
+      }
+
+      #status-bar>span:last-child {
+        margin-left: 0 !important;
+        line-height: 1.5;
+      }
+
+      .card {
+        max-width: none;
+        padding: 18px 14px;
+        border-radius: 12px;
+        margin-bottom: 14px;
+      }
+
+      .card-title {
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 18px;
+        line-height: 1.45;
+      }
+
+      .card-title span {
+        display: block;
+        margin-left: 0 !important;
+        width: 100%;
+      }
+
+      .card-title .optional-badge {
+        display: inline-block;
+        width: auto;
+      }
+
+      .field {
+        grid-template-columns: 1fr;
+        align-items: stretch;
+        gap: 8px;
+        padding: 14px 0;
+      }
+
+      .field-label {
+        font-size: 13px;
+      }
+
+      .field-hint {
+        line-height: 1.45;
+      }
+
+      .field input {
+        min-height: 44px;
+        font-size: 16px;
+      }
+
+      .toggle-vis {
+        width: 36px;
+        height: 36px;
+        justify-content: center;
+        right: 8px;
+      }
+
+      .divider {
+        max-width: none;
+        margin: 0 0 14px;
+      }
+
+      .actions {
+        max-width: none;
+        flex-direction: column-reverse;
+        gap: 10px;
+        margin-top: 4px;
+      }
+
+      .actions .btn {
+        width: 100%;
+        justify-content: center;
+        min-height: 46px;
+      }
+
+      .toast {
+        width: max-content;
+        max-width: calc(100vw - 24px);
+        bottom: 16px;
+        padding: 12px 14px;
+        line-height: 1.45;
+      }
+    }
   </style>
 </head>
 
@@ -362,7 +545,8 @@
       <a class="btn btn-ghost" href="https://github.com/Seren-dipity/APIQIK-GG-WebUI" target="_blank" title="GitHub 仓库"
         style="padding: 4px; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 8px; color: var(--ink-secondary);">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
-          <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
+          <path
+            d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
         </svg>
       </a>
       <select id="theme-style-select" class="btn btn-ghost" onchange="ThemeManager.setStyle(this.value)"
@@ -381,7 +565,6 @@
   <!-- 配置状态栏 -->
   <div id="status-bar">
     <span class="status-item"><span id="dot-api" class="status-dot none"></span>APIQIK Key</span>
-    <span class="status-item"><span id="dot-vip-api" class="status-dot none"></span>APIQIK VIP Key</span>
     <span class="status-item"><span id="dot-r2" class="status-dot none"></span>Cloudflare R2</span>
     <span style="margin-left:auto;font-size:12px;">配置储存在浏览器本地，不会上传至服务器</span>
   </div>
@@ -399,27 +582,11 @@
     <div class="field">
       <div>
         <div class="field-label">API Key <span class="required">*</span></div>
-        <div class="field-hint">用codex-image分组的密钥</div>
+        <div class="field-hint">推荐使用Auto分组令牌，全部模型共用这一枚 Key</div>
       </div>
       <div class="field-input-wrap">
         <input id="apiqik_key" type="password" placeholder="sk-..." autocomplete="off" />
         <button class="toggle-vis" data-target="apiqik_key" title="显示/隐藏">
-          <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-            <circle cx="12" cy="12" r="3" />
-          </svg>
-        </button>
-      </div>
-    </div>
-
-    <div class="field">
-      <div>
-        <div class="field-label">VIP API Key</div>
-        <div class="field-hint">default分组的密钥, gpt-image-2-vip 模型需要</div>
-      </div>
-      <div class="field-input-wrap">
-        <input id="apiqik_vip_key" type="password" placeholder="sk-..." autocomplete="off" />
-        <button class="toggle-vis" data-target="apiqik_vip_key" title="显示/隐藏">
           <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
             <circle cx="12" cy="12" r="3" />
@@ -442,17 +609,18 @@
   <div class="divider"></div>
 
   <!-- Cloudflare R2 配置 -->
-  <div class="card">
-    <div class="card-title">
+  <details class="card optional-card" id="cloudflareConfig">
+    <summary class="card-title">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <polyline points="16 16 12 12 8 16" />
         <line x1="12" y1="12" x2="12" y2="21" />
         <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
       </svg>
       Cloudflare R2 配置
+      <span class="optional-badge">选配</span>
       <span
-        style="font-size:12px;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;margin-left:8px;">本地上传参考图时需要</span>
-    </div>
+        style="font-size:12px;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;margin-left:8px;">自建图床需要</span>
+    </summary>
 
     <div class="field">
       <div>
@@ -515,7 +683,7 @@
         <input id="cf_public_url" type="text" placeholder="https://pub-xxx.r2.dev" />
       </div>
     </div>
-  </div>
+  </details>
 
   <!-- 操作按钮 -->
   <div class="actions">
@@ -532,10 +700,12 @@
   <div class="toast" id="toast"></div>
 
   <script>
-    const KEYS = ['apiqik_key', 'apiqik_vip_key', 'apiqik_base_url', 'cf_access_key', 'cf_secret_key', 'cf_account_id', 'cf_bucket', 'cf_public_url'];
+    const KEYS = ['apiqik_key', 'apiqik_base_url', 'cf_access_key', 'cf_secret_key', 'cf_account_id', 'cf_bucket', 'cf_public_url'];
+    const LEGACY_KEYS = ['apiqik_vip_key'];
 
     // 页面加载时从 localStorage 回填
     function loadFromStorage() {
+      LEGACY_KEYS.forEach(k => localStorage.removeItem(k));
       KEYS.forEach(k => {
         const val = localStorage.getItem(k) || '';
         const el = document.getElementById(k);
@@ -546,18 +716,17 @@
 
     function updateStatusBar() {
       const hasApiKey = !!localStorage.getItem('apiqik_key');
-      const hasVipApiKey = !!localStorage.getItem('apiqik_vip_key');
       const r2Keys = ['cf_access_key', 'cf_secret_key', 'cf_account_id', 'cf_bucket', 'cf_public_url'];
       const hasR2 = r2Keys.every(k => !!localStorage.getItem(k));
 
       document.getElementById('dot-api').className = `status-dot ${hasApiKey ? 'ok' : 'bad'}`;
-      document.getElementById('dot-vip-api').className = `status-dot ${hasVipApiKey ? 'ok' : 'none'}`;
       document.getElementById('dot-r2').className = `status-dot ${hasR2 ? 'ok' : (r2Keys.some(k => !!localStorage.getItem(k)) ? 'bad' : 'none')}`;
     }
 
     function saveAll() {
       let hasError = false;
 
+      LEGACY_KEYS.forEach(k => localStorage.removeItem(k));
       KEYS.forEach(k => {
         const el = document.getElementById(k);
         if (el) {
@@ -581,6 +750,7 @@
 
     function clearAll() {
       if (!confirm('确认清除所有已保存的配置？')) return;
+      LEGACY_KEYS.forEach(k => localStorage.removeItem(k));
       KEYS.forEach(k => localStorage.removeItem(k));
       KEYS.forEach(k => {
         const el = document.getElementById(k);

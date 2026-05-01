@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 
 <head>
@@ -19,7 +19,7 @@
   <link rel="stylesheet" href="/static/css/themes/vercel-dark.css">
   <link rel="stylesheet" href="/static/css/base.css">
   <script>
-    (function() {
+    (function () {
       var s = localStorage.getItem('theme-style') || 'claude';
       var m = localStorage.getItem('theme-mode') || 'dark';
       document.documentElement.setAttribute('data-theme', s + '-' + m);
@@ -36,12 +36,14 @@
       </div>
       <div class="top-actions">
         <div class="theme-controls" style="display: flex; gap: 8px;">
-          <select id="theme-style-select" class="btn btn-small" onchange="ThemeManager.setStyle(this.value)" style="width: auto; min-width: 100px;">
+          <select id="theme-style-select" class="btn btn-small" onchange="ThemeManager.setStyle(this.value)"
+            style="width: auto; min-width: 100px;">
             <option value="apple">Apple Style</option>
             <option value="claude">Claude Style</option>
             <option value="vercel">Vercel Style</option>
           </select>
-          <button id="theme-mode-toggle" class="btn btn-small icon-btn" onclick="ThemeManager.toggleMode()" title="切换模式">
+          <button id="theme-mode-toggle" class="btn btn-small icon-btn" onclick="ThemeManager.toggleMode()"
+            title="切换模式">
             <!-- Icon injected via JS -->
           </button>
         </div>
@@ -49,9 +51,11 @@
           <span class="status-pill"><span id="keyDot" class="dot"></span><span id="keyLabel">未配置</span></span>
           <span class="status-pill"><span id="runDot" class="dot"></span><span id="runStatus">待开始</span></span>
         </div>
-        <a class="btn btn-ghost icon-btn" href="https://github.com/Seren-dipity/APIQIK-GG-WebUI" target="_blank" title="GitHub 仓库" style="color: var(--ink-secondary);">
+        <a class="btn btn-ghost icon-btn" href="https://github.com/Seren-dipity/APIQIK-GG-WebUI" target="_blank"
+          title="GitHub 仓库" style="color: var(--ink-secondary);">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-            <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
+            <path
+              d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
           </svg>
         </a>
         <a class="btn btn-blue" href="/settings" title="打开设置">
@@ -77,7 +81,26 @@
             <div class="prompt-toolbar">
               <div class="command-settings">
                 <div class="command-field command-field--model">
-                  <label for="model">模型</label>
+                  <div class="field-label-row">
+                    <label for="model">模型</label>
+                    <button id="modelPricingHelp" class="help-icon-btn" type="button" aria-label="查看模型收费标准"
+                      aria-expanded="false" aria-controls="modelPricingPopover">?</button>
+                    <div id="modelPricingPopover" class="pricing-popover" role="tooltip" hidden>
+                      <div class="pricing-section">
+                        <div class="pricing-title">自由尺寸</div>
+                        <div class="pricing-row"><span>gpt-image-2-flatfee</span><strong>0.02元/张</strong></div>
+                        <div class="pricing-row"><span>gpt-image-2-vip</span><strong>0.05元/张</strong></div>
+                      </div>
+                      <div class="pricing-section">
+                        <div class="pricing-title">固定尺寸</div>
+                        <div class="pricing-row"><span>gpt-image-2-flatfee-2k</span><strong>0.02元/张</strong></div>
+                        <div class="pricing-row"><span>gpt-image-2-flatfee-4k</span><strong>0.02元/张</strong></div>
+                      </div>
+                      <p class="pricing-note">以上为default分组价格，codex-image分组价格8折(gpt-image-2-vip没有)</p>
+                      <a class="pricing-link" href="https://value.apiqik.online/pricing" target="_blank"
+                        rel="noopener noreferrer">以 https://value.apiqik.online/pricing 为准</a>
+                    </div>
+                  </div>
                   <select id="model">
                     <option value="gpt-image-2-flatfee">gpt-image-2-flatfee</option>
                     <option value="gpt-image-2-flatfee-4k">gpt-image-2-flatfee-4k</option>
@@ -162,6 +185,32 @@
             </div>
 
             <div id="uploadPanel">
+              <div class="upload-provider-wrapper" style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                <div class="upload-provider" aria-label="本地上传图床" style="margin-bottom: 0;">
+                  <label>
+                    <input id="uploadProviderImage16" type="radio" name="uploadProvider" value="image16" checked />
+                    <span>临时图床</span>
+                  </label>
+                  <label>
+                    <input id="uploadProviderR2" type="radio" name="uploadProvider" value="r2" />
+                    <span>Cloudflare R2</span>
+                  </label>
+                </div>
+                <div style="position: relative;">
+                  <button id="image16Help" class="help-icon-btn" type="button" aria-label="临时图床说明"
+                    aria-expanded="false" aria-controls="image16Popover">?</button>
+                  <div id="image16Popover" class="pricing-popover" role="tooltip" hidden style="left: auto; right: 0; width: 240px; top: calc(100% + 4px);">
+                    <div class="pricing-section">
+                      <div class="pricing-title">临时图床说明</div>
+                      <p style="margin: 0; font-size: 12px; color: var(--ink-secondary); line-height: 1.5;">
+                        使用 <a href="https://111666.best/" target="_blank" style="color: var(--accent); text-decoration: none;">111666.best</a> 服务。
+                        图片将上传至该公开平台，请注意隐私。任务结束后系统会尝试自动删除。
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p id="uploadProviderHint" class="upload-provider-hint">无需配置，任务结束后自动清理。</p>
               <div id="dropzone" class="dropzone">
                 <div>
                   <strong>点击选择或拖拽图片到这里</strong>
@@ -176,7 +225,7 @@
 
             <div id="urlPanel" style="display: none;">
               <div style="font-size: 14px; margin-bottom: 8px; color: var(--ink-secondary);">输入图片链接</div>
-              <div style="display: flex; gap: 10px; margin-bottom: 14px;">
+              <div class="url-input-row">
                 <input id="urlInput" type="text" placeholder="https://example.com/input.png"
                   style="flex: 1; background: var(--surface-primary); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; color: var(--ink); outline: none; font-size: 14px;" />
                 <button type="button" class="btn btn-ghost" id="addUrlBtn" style="white-space: nowrap;">添加链接</button>
@@ -470,6 +519,9 @@
       fileInput: document.getElementById("fileInput"),
       thumbs: document.getElementById("thumbs"),
       uploadStatus: document.getElementById("uploadStatus"),
+      uploadProviderImage16: document.getElementById("uploadProviderImage16"),
+      uploadProviderR2: document.getElementById("uploadProviderR2"),
+      uploadProviderHint: document.getElementById("uploadProviderHint"),
       urlStatus: document.getElementById("urlStatus"),
       tabUploadBtn: document.getElementById("tabUploadBtn"),
       tabUrlBtn: document.getElementById("tabUrlBtn"),
@@ -479,7 +531,11 @@
       addUrlBtn: document.getElementById("addUrlBtn"),
       lightbox: document.getElementById("lightbox"),
       lightboxImage: document.getElementById("lightboxImage"),
-      closeLightbox: document.getElementById("closeLightbox")
+      closeLightbox: document.getElementById("closeLightbox"),
+      modelPricingHelp: document.getElementById("modelPricingHelp"),
+      modelPricingPopover: document.getElementById('modelPricingPopover'),
+      image16Help: document.getElementById('image16Help'),
+      image16Popover: document.getElementById('image16Popover')
     };
 
     const activeTasks = new Map();
@@ -491,6 +547,7 @@
     let activeRunId = null;
     let uploadedImages = [];
     const imageHashCacheKey = "apiqik_image_hash_cache";
+    const image16TokenKey = "apiqik_image16_token";
 
     function fillSelect(select, values, selected) {
       select.innerHTML = values.map(value => {
@@ -614,6 +671,93 @@
       hideCustomSizeSuggestions();
     }
 
+    function fixedSizeForModel(model) {
+      if (model === "gpt-image-2-flatfee-2k") return "2048x1152";
+      if (model === "gpt-image-2-flatfee-4k") return "3840x2160";
+      return "";
+    }
+
+    function bindHelpPopover(helpBtn, popover) {
+      const setOpen = open => {
+        popover.hidden = !open;
+        helpBtn.setAttribute("aria-expanded", String(open));
+      };
+      let closeTimer = null;
+      const scheduleClose = () => {
+        clearTimeout(closeTimer);
+        closeTimer = setTimeout(() => setOpen(false), 120);
+      };
+      const toggleOpen = () => setOpen(popover.hidden);
+
+      helpBtn.addEventListener("click", event => {
+        event.stopPropagation();
+        toggleOpen();
+      });
+      helpBtn.addEventListener("mouseenter", () => {
+        clearTimeout(closeTimer);
+        setOpen(true);
+      });
+      helpBtn.addEventListener("focus", () => setOpen(true));
+      helpBtn.addEventListener("mouseleave", scheduleClose);
+      popover.addEventListener("mouseenter", () => {
+        clearTimeout(closeTimer);
+        setOpen(true);
+      });
+      popover.addEventListener("mouseleave", scheduleClose);
+      document.addEventListener("click", event => {
+        if (popover.hidden) return;
+        if (popover.contains(event.target) || helpBtn.contains(event.target)) return;
+        setOpen(false);
+      });
+      document.addEventListener("keydown", event => {
+        if (event.key === "Escape") setOpen(false);
+      });
+    }
+
+    function initImage16Help() {
+      if (!els.image16Help || !els.image16Popover) return;
+      bindHelpPopover(els.image16Help, els.image16Popover);
+    }
+
+    function initModelPricingHelp() {
+      if (!els.modelPricingHelp || !els.modelPricingPopover) return;
+
+      const setOpen = open => {
+        els.modelPricingPopover.hidden = !open;
+        els.modelPricingHelp.setAttribute("aria-expanded", String(open));
+      };
+      let closeTimer = null;
+      const scheduleClose = () => {
+        clearTimeout(closeTimer);
+        closeTimer = setTimeout(() => setOpen(false), 120);
+      };
+      const toggleOpen = () => setOpen(els.modelPricingPopover.hidden);
+
+      els.modelPricingHelp.addEventListener("click", event => {
+        event.stopPropagation();
+        toggleOpen();
+      });
+      els.modelPricingHelp.addEventListener("mouseenter", () => {
+        clearTimeout(closeTimer);
+        setOpen(true);
+      });
+      els.modelPricingHelp.addEventListener("focus", () => setOpen(true));
+      els.modelPricingHelp.addEventListener("mouseleave", scheduleClose);
+      els.modelPricingPopover.addEventListener("mouseenter", () => {
+        clearTimeout(closeTimer);
+        setOpen(true);
+      });
+      els.modelPricingPopover.addEventListener("mouseleave", scheduleClose);
+      document.addEventListener("click", event => {
+        if (els.modelPricingPopover.hidden) return;
+        if (els.modelPricingPopover.contains(event.target) || els.modelPricingHelp.contains(event.target)) return;
+        setOpen(false);
+      });
+      document.addEventListener("keydown", event => {
+        if (event.key === "Escape") setOpen(false);
+      });
+    }
+
     function fixCustomSize() {
       if (!els.customSize.value.trim()) return;
       els.customSize.value = normalizeCustomSize(els.customSize.value);
@@ -680,11 +824,8 @@
     }
 
     function updateKeyState() {
-      const model = els.model ? els.model.value : "";
-      let apiKey = localStorage.getItem("apiqik_key");
-      if (model === "gpt-image-2-vip" && localStorage.getItem("apiqik_vip_key")) {
-        apiKey = localStorage.getItem("apiqik_vip_key");
-      }
+      localStorage.removeItem("apiqik_vip_key");
+      const apiKey = localStorage.getItem("apiqik_key");
       const hasKey = !!apiKey;
       els.keyDot.className = `dot ${hasKey ? "ok" : "bad"}`;
       els.keyLabel.textContent = hasKey ? "已配置" : "未配置";
@@ -746,8 +887,110 @@
       return keys.every(key => config[key]) ? config : null;
     }
 
+    function getUploadProvider() {
+      return els.uploadProviderR2?.checked ? "r2" : "image16";
+    }
+
+    function updateUploadProviderHint() {
+      if (!els.uploadProviderHint) return;
+      els.uploadProviderHint.textContent = getUploadProvider() === "r2"
+        ? "使用设置页 Cloudflare R2 配置，适合长期保留参考图。"
+        : "无需配置，任务结束后自动清理。";
+    }
+
+    function getImage16Token() {
+      let token = localStorage.getItem(image16TokenKey);
+      if (!token) {
+        const random = crypto.randomUUID
+          ? crypto.randomUUID().replaceAll("-", "").slice(0, 12)
+          : Math.random().toString(16).slice(2, 14).padEnd(12, "0");
+        token = `at_${random}`;
+        localStorage.setItem(image16TokenKey, token);
+      }
+      return token;
+    }
+
+    async function uploadFileToImage16(file) {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("token", getImage16Token());
+      const response = await fetch("/api/image-host/upload", { method: "POST", body: form });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.detail || "上传失败");
+      return data;
+    }
+
+    function isImage16ReferenceInActiveTask(imageId) {
+      for (const task of activeTasks.values()) {
+        if ((task.cleanupRefs || []).some(ref => ref.image_id === imageId)) return true;
+      }
+      return false;
+    }
+
+    async function deleteImage16Reference(item) {
+      if (!item?.image_id || item.provider !== "image16") return false;
+      const response = await fetch(`/api/image-host/${encodeURIComponent(item.image_id)}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: getImage16Token() })
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.detail || "临时图床删除失败");
+      }
+      return true;
+    }
+
+    function currentImage16CleanupRefs() {
+      return uploadedImages
+        .filter(item => item.provider === "image16" && item.image_id)
+        .map(item => ({ image_id: item.image_id, url: item.url }));
+    }
+
+    async function cleanupImage16References(refs = []) {
+      if (!refs.length) return;
+      const ids = new Set(refs.map(ref => ref.image_id).filter(Boolean));
+      for (const ref of refs) {
+        try {
+          await deleteImage16Reference({ provider: "image16", image_id: ref.image_id });
+        } catch (error) {
+          logSystem(`临时图床清理失败: ${ref.image_id} ${error.message}`);
+        }
+      }
+      uploadedImages = uploadedImages.filter(item => !(item.provider === "image16" && ids.has(item.image_id)));
+      renderThumbs();
+    }
+
+    function parseImageProvider(url) {
+      if (!url) return { provider: "unknown" };
+      if (url.includes("i.111666.best/image/")) {
+        const image_id = url.split("/").pop();
+        return { provider: "image16", image_id };
+      }
+      return { provider: "r2" };
+    }
+
+    function getProxiedUrl(item) {
+      if (!item) return "";
+      if (item.preview && item.preview.startsWith('blob:')) return item.preview;
+      
+      const { provider, image_id } = item.provider ? item : parseImageProvider(item.url);
+      if (provider === "image16" && image_id) {
+        return `/api/image-host/proxy/${image_id}`;
+      }
+      return item.url || item;
+    }
+
     function getImageUrls() {
-      return uploadedImages.map(item => item.url);
+      return uploadedImages.map(item => {
+        const { provider, image_id } = item.provider ? item : parseImageProvider(item.url);
+        if (provider === "image16" && image_id) {
+          // 转换为绝对路径，以便外部 API (OpenAI/Midjourney) 可以访问
+          const proxyPath = `/api/image-host/proxy/${image_id}`;
+          return window.location.origin + proxyPath;
+        }
+        return item.url;
+      });
     }
 
     function readImageHashCache() {
@@ -821,8 +1064,9 @@
     }
 
     async function uploadFiles(files) {
-      const r2 = getR2Config();
-      if (!r2) {
+      const provider = getUploadProvider();
+      const r2 = provider === "r2" ? getR2Config() : null;
+      if (provider === "r2" && !r2) {
         alert("未配置 Cloudflare R2，无法使用本地上传。\n请在设置页进行配置，或切换至「网络链接」输入参考图。");
         logSystem("Cloudflare R2 配置不完整，无法上传参考图。");
         return;
@@ -835,6 +1079,23 @@
       for (let i = 0; i < list.length; i += 1) {
         const file = list[i];
         const preview = URL.createObjectURL(file);
+
+        if (provider === "image16") {
+          try {
+            const data = await uploadFileToImage16(file);
+            const entry = { url: data.url, name: file.name, preview, provider: "image16", image_id: data.image_id, dimensions: "" };
+            uploadedImages.push(entry);
+            logSystem(`参考图已上传到临时图床: ${file.name}`);
+            renderThumbs();
+            getImageDimensions(preview).then(dims => { entry.dimensions = dims; renderThumbs(); });
+          } catch (error) {
+            URL.revokeObjectURL(preview);
+            logSystem(`参考图上传失败: ${file.name} ${error.message}`);
+          }
+          els.uploadStatus.textContent = `上传中 ${i + 1}/${list.length}`;
+          continue;
+        }
+
         let hash = "";
         try {
           hash = await computeImageDHash(file, preview);
@@ -855,7 +1116,7 @@
 
         const cached = getCachedReferenceImage(hash);
         if (cached) {
-          const entry = { url: cached.url, name: file.name, preview, hash, cached: true, dimensions: "" };
+          const entry = { url: cached.url, name: file.name, preview, hash, cached: true, provider: "r2", dimensions: "" };
           uploadedImages.push(entry);
           logSystem(`参考图命中本地缓存，跳过上传: ${file.name}`);
           renderThumbs();
@@ -872,7 +1133,7 @@
           const response = await fetch("/api/upload-image", { method: "POST", body: form });
           const data = await response.json();
           if (!response.ok) throw new Error(data.detail || "上传失败");
-          const entry = { url: data.url, name: file.name, preview, hash, cached: false, dimensions: "" };
+          const entry = { url: data.url, name: file.name, preview, hash, cached: false, provider: "r2", dimensions: "" };
           uploadedImages.push(entry);
           cacheReferenceImage(hash, data.url, file.name);
           logSystem(`参考图已上传: ${file.name}`);
@@ -907,10 +1168,18 @@
       };
 
       els.thumbs.querySelectorAll("button").forEach(button => {
-        button.addEventListener("click", () => {
+        button.addEventListener("click", async () => {
           const [removed] = uploadedImages.splice(Number(button.dataset.index), 1);
           if (removed?.preview && removed.preview.startsWith('blob:')) {
             URL.revokeObjectURL(removed.preview);
+          }
+          if (removed?.provider === "image16" && !isImage16ReferenceInActiveTask(removed.image_id)) {
+            try {
+              await deleteImage16Reference(removed);
+              logSystem(`已删除临时参考图: ${removed.name}`);
+            } catch (error) {
+              logSystem(`临时参考图删除失败: ${removed.name} ${error.message}`);
+            }
           }
           renderThumbs();
         });
@@ -1015,8 +1284,8 @@
       els.runDetail.innerHTML = `
         <div class="detail-header">
           <h3 class="detail-title" style="grid-column: 1; grid-row: 1;">${escapeHtml(run.prompt || "未命名结果组")}</h3>
-          <div style="grid-column: 2; grid-row: 1; display: flex; justify-content: flex-end; align-items: flex-start;">
-            <button class="btn btn-small" type="button" data-reuse-run="${run.run_id}" title="将参数填回输入表单" style="font-size: 13px; min-height: 26px; padding: 0 8px;">复用参数</button>
+          <div class="detail-actions detail-actions--primary">
+            <button class="btn btn-small" type="button" data-reuse-run="${run.run_id}" title="将参数填回输入表单">复用参数</button>
           </div>
           <div class="result-summary" style="grid-column: 1; grid-row: 2;">
             <span>${escapeHtml(run.model || params.model || "未知模型")}</span>
@@ -1024,8 +1293,8 @@
             <span>${formatRunTime(run.created_at)}</span>
             <span>${statusLabel(run)} · ${run.images.length}/${run.total || run.images.length}</span>
           </div>
-          <div style="grid-column: 2; grid-row: 2; display: flex; justify-content: flex-end; align-items: flex-start;">
-            <button class="btn btn-small btn-warn" type="button" data-delete-run="${run.run_id}" style="font-size: 13px; min-height: 26px; padding: 0 8px;">删除整组</button>
+          <div class="detail-actions detail-actions--danger">
+            <button class="btn btn-small btn-warn" type="button" data-delete-run="${run.run_id}">删除整组</button>
           </div>
         </div>
         <div id="detailGallery" class="gallery">
@@ -1170,7 +1439,7 @@
           els.customSize.value = params.size;
         }
       }
-      
+
       // 触发模型可见性逻辑
       updateModelVisibility();
 
@@ -1179,10 +1448,12 @@
         uploadedImages = params.image_urls.map(url => ({
           url,
           name: url.split("/").pop() || "历史参考图",
-          preview: url,
+          preview: getProxiedUrl({ url }),
           cached: true,
           dimensions: ""
         }));
+        if (els.uploadProviderR2) els.uploadProviderR2.checked = true;
+        updateUploadProviderHint();
         renderThumbs();
         // 尝试读取尺寸
         uploadedImages.forEach(item => {
@@ -1193,6 +1464,8 @@
         });
       } else {
         uploadedImages = [];
+        if (els.uploadProviderImage16) els.uploadProviderImage16.checked = true;
+        updateUploadProviderHint();
         renderThumbs();
       }
 
@@ -1244,16 +1517,14 @@
 
     async function startGeneration() {
       const model = els.model.value;
-      let apiKey = localStorage.getItem("apiqik_key") || "";
-      if (model === "gpt-image-2-vip" && localStorage.getItem("apiqik_vip_key")) {
-        apiKey = localStorage.getItem("apiqik_vip_key");
-      }
+      localStorage.removeItem("apiqik_vip_key");
+      const apiKey = localStorage.getItem("apiqik_key") || "";
       const prompt = els.prompt.value.trim();
       const concurrency = Number(els.concurrency.value);
 
       if (!apiKey) {
         updateKeyState();
-        logSystem(model === "gpt-image-2-vip" ? "缺少 APIQIK Key 或 VIP Key，请先在设置页保存密钥。" : "请先配置 APIQIK Key。");
+        logSystem("请先配置 APIQIK Key。");
         return;
       }
       if (!prompt) {
@@ -1284,7 +1555,7 @@
         if (els.customSize.value) finalSize = els.customSize.value;
       }
       if (model === "gpt-image-2-flatfee-2k" || model === "gpt-image-2-flatfee-4k") {
-        finalSize = "";
+        finalSize = fixedSizeForModel(model);
         finalRatio = "";
       }
 
@@ -1317,7 +1588,7 @@
         submittedRun = createRunGroup(payload, data.run || { run_id: data.run_id || data.task_id, params: payload, prompt, model: payload.model });
         activeRunGroup = submittedRun;
         setGroupStatus(submittedRun, "running");
-        subscribeTask(data.task_id, submittedRun.run_id);
+        subscribeTask(data.task_id, submittedRun.run_id, currentImage16CleanupRefs());
         updateActiveTaskState();
       } catch (error) {
         setGroupStatus(submittedRun, "error");
@@ -1327,9 +1598,9 @@
       }
     }
 
-    function subscribeTask(taskId, runId) {
+    function subscribeTask(taskId, runId, cleanupRefs = []) {
       const source = new EventSource(`/api/tasks/${taskId}/stream`);
-      activeTasks.set(taskId, { source, runId });
+      activeTasks.set(taskId, { source, runId, cleanupRefs });
       source.onmessage = (message) => {
         const event = JSON.parse(message.data);
         handleTaskEvent(event, runId, taskId);
@@ -1373,7 +1644,10 @@
         }
         setGroupStatus(group, "completed");
         const task = activeTasks.get(taskId);
-        if (task) task.source.close();
+        if (task) {
+          task.source.close();
+          cleanupImage16References(task.cleanupRefs || []);
+        }
         activeTasks.delete(taskId);
         updateActiveTaskState();
       }
@@ -1382,6 +1656,10 @@
     function bindUpload() {
       els.dropzone.addEventListener("click", () => els.fileInput.click());
       els.fileInput.addEventListener("change", () => uploadFiles(els.fileInput.files));
+      [els.uploadProviderImage16, els.uploadProviderR2].forEach(input => {
+        if (input) input.addEventListener("change", updateUploadProviderHint);
+      });
+      updateUploadProviderHint();
 
       ["dragenter", "dragover"].forEach(name => {
         els.dropzone.addEventListener(name, event => {
@@ -1668,6 +1946,8 @@
 
     function init() {
       initLinkedSizeControls();
+      initModelPricingHelp();
+      initImage16Help();
       updateKeyState();
       bindUpload();
       bindHistoryEvents();

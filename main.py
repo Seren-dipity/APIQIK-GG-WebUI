@@ -21,6 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 import core as api_core
+from utils import image_host
 
 app = FastAPI(title="APIQIK Image Generator")
 
@@ -53,6 +54,10 @@ class GenerateRequest(BaseModel):
     output_format: str | None = None
     concurrency: int = 10
     image_urls: list[str] = Field(default_factory=list)
+
+
+class ImageHostDeleteRequest(BaseModel):
+    token: str
 
 
 # ──────────────────────────────────────────────
@@ -106,6 +111,62 @@ async def upload_image(
         tmp_path.unlink(missing_ok=True)
 
     return {"url": public_url}
+
+
+@app.post("/api/image-host/upload")
+async def upload_image_host(
+    file: UploadFile = File(...),
+    token: str = Form(...),
+):
+    """Upload a reference image to the zero-config temporary image host."""
+    suffix = Path(file.filename).suffix if file.filename else ".png"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        tmp.write(await file.read())
+        tmp_path = Path(tmp.name)
+
+    try:
+        result = await asyncio.to_thread(image_host.upload_to_image16, tmp_path, token)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+    return {"provider": "image16", **result}
+
+
+@app.delete("/api/image-host/{image_id}")
+async def delete_image_host(image_id: str, req: ImageHostDeleteRequest):
+    """Delete a temporary image-host upload using the browser token that created it."""
+    try:
+        deleted = await asyncio.to_thread(image_host.delete_from_image16, image_id, req.token)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    if not deleted:
+        raise HTTPException(status_code=502, detail="Image host deletion failed")
+    return {"deleted": True, "image_id": image_id}
+
+
+@app.get("/api/image-host/proxy/{image_id}")
+async def proxy_image_host(image_id: str):
+    """Proxy image requests to bypass image16's direct download restrictions (403 Forbidden)."""
+    import requests
+    url = f"{image_host.IMAGE16_BASE_URL}/image/{image_id}"
+    
+    def _stream_response():
+        with requests.get(url, headers={"User-Agent": image_host.IMAGE16_USER_AGENT}, stream=True, timeout=30) as r:
+            if r.status_code != 200:
+                raise HTTPException(status_code=r.status_code, detail="Failed to fetch image from host")
+            for chunk in r.iter_content(chunk_size=8192):
+                yield chunk
+
+    # 获取原始响应头以确定内容类型
+    try:
+        head_resp = requests.head(url, headers={"User-Agent": image_host.IMAGE16_USER_AGENT}, timeout=5)
+        content_type = head_resp.headers.get("Content-Type", "image/png")
+    except:
+        content_type = "image/png"
+
+    return StreamingResponse(_stream_response(), media_type=content_type)
 
 
 # ──────────────────────────────────────────────
