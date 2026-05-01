@@ -886,9 +886,6 @@
         : "使用服务器提供的公共存储，图片将上传至管理员配置的 R2 存储桶。";
     }
 
-    function parseImageProvider(url) {
-      return { provider: "r2" };
-    }
 
     function getProxiedUrl(item) {
       if (!item) return "";
@@ -1350,7 +1347,7 @@
         });
       } else {
         uploadedImages = [];
-        if (els.uploadProviderImage16) els.uploadProviderImage16.checked = true;
+        if (els.uploadProviderPublic) els.uploadProviderPublic.checked = true;
         updateUploadProviderHint();
         renderThumbs();
       }
@@ -1529,7 +1526,6 @@
           group.done = group.total || group.done || group.images.length;
         }
         setGroupStatus(group, "completed");
-        }
         activeTasks.delete(taskId);
         updateActiveTaskState();
       }
@@ -1829,7 +1825,6 @@
     function init() {
       initLinkedSizeControls();
       initModelPricingHelp();
-      initImage16Help();
       updateKeyState();
       bindUpload();
       bindHistoryEvents();
