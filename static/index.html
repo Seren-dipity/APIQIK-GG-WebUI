@@ -394,7 +394,7 @@
       "2560x1088": "21:9",
       "3440x1440": "21:9"
     };
-    const ratios = ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9", "custom"];
+    const ratios = ["auto", "1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9", "custom"];
     const sizes = Object.keys(sizeToRatio);
     const ratioToSizes = sizes.reduce((acc, size) => {
       const ratio = sizeToRatio[size];
@@ -547,7 +547,10 @@
     function renderRatioGrid(selected) {
       els.ratioGrid.innerHTML = ratios.map(r => {
         let visualStyle = "";
-        if (r === "custom") {
+        let innerHtml = "";
+        if (r === "auto") {
+          visualStyle = "width: 20px; height: 20px; border-radius: 50%; border-style: dashed;";
+        } else if (r === "custom") {
           visualStyle = "width: 18px; height: 18px; border-style: dashed;";
         } else {
           const [w, h] = r.split(":").map(Number);
@@ -558,7 +561,7 @@
           }
         }
 
-        const label = r === "custom" ? "自定义" : r;
+        const label = r === "custom" ? "自定义" : r === "auto" ? "Auto" : r;
         const active = r === selected ? "active" : "";
         return `
           <div class="ratio-item ${active}" data-value="${r}">
@@ -582,7 +585,10 @@
     }
 
     function onRatioChange(val) {
-      if (val === "custom") {
+      if (val === "auto") {
+        els.sizeField.style.display = "none";
+        els.customSizeField.style.display = "none";
+      } else if (val === "custom") {
         els.sizeField.style.display = "none";
         els.customSizeField.style.display = "";
       } else {
@@ -641,11 +647,15 @@
         }
 
         if (!isCustomizable) {
-          if (els.ratioGrid.dataset.value === "custom") renderRatioGrid("1:1");
+          if (els.ratioGrid.dataset.value === "custom" || els.ratioGrid.dataset.value === "auto") renderRatioGrid("1:1");
           els.sizeField.style.display = "";
           els.customSizeField.style.display = "none";
         } else {
-          if (els.ratioGrid.dataset.value === "custom") {
+          const currentRatio = els.ratioGrid.dataset.value;
+          if (currentRatio === "auto") {
+            els.sizeField.style.display = "none";
+            els.customSizeField.style.display = "none";
+          } else if (currentRatio === "custom") {
             els.sizeField.style.display = "none";
             els.customSizeField.style.display = "";
           } else {
@@ -1305,7 +1315,10 @@
       els.outputFormat.value = params.output_format || "";
 
       // 2. 尺寸与比例
-      if (params.ratio) {
+      if (params.ratio === "auto" || params.size === "auto") {
+        renderRatioGrid("auto");
+        onRatioChange("auto");
+      } else if (params.ratio) {
         renderRatioGrid(params.ratio);
         onRatioChange(params.ratio);
       } else if (params.size) {
@@ -1424,7 +1437,10 @@
       let finalSize = els.size.value;
       let finalRatio = els.ratioGrid.dataset.value || "1:1";
 
-      if (finalRatio === "custom") {
+      if (finalRatio === "auto") {
+        finalSize = "auto";
+        finalRatio = "";
+      } else if (finalRatio === "custom") {
         finalRatio = "";
         if (!els.customSize.value) {
           logSystem("请输入自定义尺寸。");
