@@ -115,13 +115,15 @@
                 </div>
               </div>
 
-              <div class="command-actions">
-                <button id="startBtn" class="btn btn-primary" type="button">
-                  <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                  开始生成
-                </button>
+              <div id="startActionDesktopSlot" class="start-action-slot">
+                <div id="startAction" class="command-actions">
+                  <button id="startBtn" class="btn btn-primary" type="button">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                    开始生成
+                  </button>
+                </div>
               </div>
             </div>
             <label class="sr-only" for="prompt">提示词</label>
@@ -278,6 +280,7 @@
                 </select>
               </div>
             </div>
+            <div id="mobileStartSlot" class="mobile-start-slot"></div>
           </section>
         </div>
 
@@ -505,6 +508,9 @@
       outputFormat: document.getElementById("outputFormat"),
       concurrency: document.getElementById("concurrency"),
       prompt: document.getElementById("prompt"),
+      startAction: document.getElementById("startAction"),
+      startActionDesktopSlot: document.getElementById("startActionDesktopSlot"),
+      mobileStartSlot: document.getElementById("mobileStartSlot"),
       startBtn: document.getElementById("startBtn"),
       clearBtn: document.getElementById("clearBtn"),
       clearResultsBtn: document.getElementById("clearResultsBtn"),
@@ -550,7 +556,23 @@
     let activeRunId = null;
     let uploadedImages = [];
     const imageHashCacheKey = "apiqik_image_hash_cache";
+    const mobileStartMedia = window.matchMedia("(max-width: 640px)");
 
+
+    function syncStartButtonLayout() {
+      if (!els.startAction) return;
+
+      if (mobileStartMedia.matches) {
+        if (els.mobileStartSlot && els.startAction.parentElement !== els.mobileStartSlot) {
+          els.mobileStartSlot.appendChild(els.startAction);
+        }
+        return;
+      }
+
+      if (els.startActionDesktopSlot && els.startAction.parentElement !== els.startActionDesktopSlot) {
+        els.startActionDesktopSlot.appendChild(els.startAction);
+      }
+    }
 
     function fillSelect(select, values, selected) {
       select.innerHTML = values.map(value => {
@@ -1823,6 +1845,12 @@
       updateKeyState();
       bindUpload();
       bindHistoryEvents();
+      syncStartButtonLayout();
+      if (mobileStartMedia.addEventListener) {
+        mobileStartMedia.addEventListener("change", syncStartButtonLayout);
+      } else {
+        mobileStartMedia.addListener(syncStartButtonLayout);
+      }
       els.startBtn.addEventListener("click", startGeneration);
       els.clearBtn.addEventListener("click", clearLogs);
       els.clearResultsBtn.addEventListener("click", clearResults);

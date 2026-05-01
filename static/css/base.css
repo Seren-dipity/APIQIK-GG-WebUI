@@ -223,6 +223,15 @@
       flex-shrink: 0;
     }
 
+    .start-action-slot {
+      display: flex;
+      flex-shrink: 0;
+    }
+
+    .mobile-start-slot {
+      display: none;
+    }
+
     .command-actions .btn {
       min-height: 38px;
     }
@@ -1387,6 +1396,11 @@
       .command-actions .btn-primary {
         width: 100%;
         min-height: 46px;
+      }
+
+      .mobile-start-slot {
+        display: block;
+        margin-top: 14px;
       }
 
       .prompt-area textarea {
