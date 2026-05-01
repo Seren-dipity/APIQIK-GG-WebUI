@@ -10,1346 +10,21 @@
     href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="12" fill="%2308090f"/><path d="M14 42 27 20l9 15 5-8 9 15H14z" fill="%2314b8a6"/><circle cx="44" cy="20" r="6" fill="%23f59e0b"/></svg>' />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <style>
-    *,
-    *::before,
-    *::after {
-      box-sizing: border-box;
-    }
-
-    :root {
-      --bg: #08090f;
-      --panel: rgba(255, 255, 255, 0.055);
-      --panel-strong: rgba(255, 255, 255, 0.085);
-      --line: rgba(255, 255, 255, 0.12);
-      --line-hot: rgba(20, 184, 166, 0.45);
-      --text: #e8eef7;
-      --muted: #93a2b7;
-      --soft: #64748b;
-      --teal: #14b8a6;
-      --blue: #38bdf8;
-      --violet: #8b5cf6;
-      --amber: #f59e0b;
-      --red: #fb7185;
-      --green: #22c55e;
-      --radius: 8px;
-      --shadow: 0 24px 70px rgba(0, 0, 0, 0.36);
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
-
-    body {
-      margin: 0;
-      min-height: 100vh;
-      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      color: var(--text);
-      background:
-        linear-gradient(140deg, rgba(20, 184, 166, 0.13), transparent 34%),
-        linear-gradient(300deg, rgba(139, 92, 246, 0.15), transparent 38%),
-        radial-gradient(circle at 58% 0%, rgba(56, 189, 248, 0.11), transparent 36%),
-        var(--bg);
-    }
-
-    button,
-    input,
-    select,
-    textarea {
-      font: inherit;
-    }
-
-    button {
-      color: inherit;
-    }
-
-    .page {
-      width: min(1440px, 100%);
-      margin: 0 auto;
-      padding: 24px;
-    }
-
-    .topbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 18px;
-      margin-bottom: 18px;
-    }
-
-    .brand {
-      min-width: 0;
-    }
-
-    .brand h1 {
-      margin: 0;
-      font-size: clamp(28px, 4vw, 52px);
-      line-height: 1;
-      letter-spacing: 0;
-      background: linear-gradient(120deg, #f8fafc, #7dd3fc 38%, #c4b5fd 72%, #fbbf24);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .brand p {
-      margin: 10px 0 0;
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    .top-actions {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-
-    .workspace {
-      display: grid;
-      gap: 18px;
-    }
-
-    .main-grid {
-      position: relative;
-      z-index: 2;
-      display: grid;
-      grid-template-columns: minmax(420px, 0.82fr) minmax(0, 1.18fr);
-      gap: 18px;
-      align-items: stretch;
-      min-height: clamp(420px, calc(100vh - 250px), 760px);
-    }
-
-    .command-field {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-      min-width: 0;
-    }
-
-    .command-field label {
-      margin: 0;
-      font-size: 11px;
-      letter-spacing: 0.04em;
-    }
-
-    .command-field select,
-    .command-field input {
-      height: 38px;
-    }
-
-    .command-field--model {
-      width: 260px;
-      flex: 0 0 260px;
-    }
-
-    .command-field--concurrency {
-      width: 96px;
-      flex-shrink: 0;
-    }
-
-    .command-settings {
-      display: grid;
-      grid-template-columns: 260px 96px;
-      align-items: end;
-      gap: 14px;
-      min-width: 0;
-    }
-
-    .command-actions {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      flex-shrink: 0;
-    }
-
-    .command-actions .btn {
-      min-height: 38px;
-    }
-
-    .command-status {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .prompt-toolbar {
-      display: flex;
-      align-items: end;
-      gap: 14px;
-      flex-wrap: wrap;
-      margin-bottom: 14px;
-    }
-
-    .sr-only {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      padding: 0;
-      margin: -1px;
-      overflow: hidden;
-      clip: rect(0, 0, 0, 0);
-      white-space: nowrap;
-      border: 0;
-    }
-
-    .input-panel,
-    .logs-panel {
-      min-width: 0;
-    }
-
-    .logs-panel {
-      position: relative;
-      z-index: 1;
-    }
-
-    .results-panel {
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      contain: size;
-    }
-
-    .results-panel>.section {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-    }
-
-    .panel {
-      border: 1px solid var(--line);
-      background: var(--panel);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(18px);
-    }
-
-    .section {
-      padding: 18px;
-    }
-
-    .section+.section {
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    .section-title {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 14px;
-    }
-
-    .section-title h2 {
-      margin: 0;
-      font-size: 14px;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: #c7d2fe;
-    }
-
-    .config-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
-    }
-
-    .settings-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 14px;
-    }
-
-    .field {
-      min-width: 0;
-    }
-
-    .field.full {
-      grid-column: 1 / -1;
-    }
-
-    label {
-      display: block;
-      margin-bottom: 7px;
-      color: var(--muted);
-      font-size: 13px;
-      font-weight: 600;
-    }
-
-    input,
-    select,
-    textarea {
-      width: 100%;
-      color: var(--text);
-      background: rgba(3, 7, 18, 0.58);
-      border: 1px solid rgba(255, 255, 255, 0.13);
-      border-radius: var(--radius);
-      outline: none;
-      transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
-    }
-
-    input,
-    select {
-      height: 42px;
-      padding: 0 12px;
-    }
-
-    textarea {
-      min-height: 180px;
-      resize: vertical;
-      padding: 12px;
-      line-height: 1.55;
-    }
-
-    input:focus,
-    select:focus,
-    textarea:focus {
-      border-color: var(--line-hot);
-      box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.16);
-      background: rgba(3, 7, 18, 0.72);
-    }
-
-    input:disabled,
-    select:disabled,
-    textarea:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    select option {
-      background: #111827;
-    }
-
-    .prompt-area textarea {
-      min-height: 236px;
-    }
-
-    .custom-size-picker {
-      position: relative;
-    }
-
-    .custom-size-suggestions {
-      position: absolute;
-      z-index: 20;
-      left: 0;
-      right: 0;
-      top: calc(100% + 6px);
-      max-height: 220px;
-      overflow: auto;
-      padding: 6px;
-      border: 1px solid rgba(125, 211, 252, 0.2);
-      border-radius: var(--radius);
-      background: rgba(9, 14, 24, 0.96);
-      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.38);
-      backdrop-filter: blur(18px);
-    }
-
-    .custom-size-suggestions[hidden] {
-      display: none;
-    }
-
-    .custom-size-option {
-      width: 100%;
-      min-height: 38px;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 5px;
-      padding: 10px 12px;
-      border: 0;
-      border-radius: 6px;
-      background: transparent;
-      color: var(--text);
-      cursor: pointer;
-      text-align: left;
-    }
-
-    .custom-size-option:hover {
-      background: rgba(125, 211, 252, 0.12);
-    }
-
-    .custom-size-option strong {
-      font-size: 13px;
-      font-weight: 700;
-      line-height: 1.25;
-      white-space: nowrap;
-    }
-
-    .custom-size-option span {
-      display: block;
-      width: 100%;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.35;
-      white-space: normal;
-      overflow-wrap: anywhere;
-    }
-
-    .ratio-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
-      gap: 8px;
-      margin-top: 4px;
-    }
-
-    .ratio-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 4px;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: var(--radius);
-      background: rgba(255, 255, 255, 0.04);
-      cursor: pointer;
-      transition: all 0.18s ease;
-      user-select: none;
-    }
-
-    .ratio-item:hover {
-      background: rgba(255, 255, 255, 0.08);
-      border-color: rgba(255, 255, 255, 0.25);
-    }
-
-    .ratio-item.active {
-      background: rgba(20, 184, 166, 0.15);
-      border-color: var(--teal);
-      box-shadow: 0 0 0 1px var(--teal);
-    }
-
-    .ratio-visual-container {
-      width: 28px;
-      height: 28px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      pointer-events: none;
-    }
-
-    .ratio-visual {
-      border: 1.5px solid currentColor;
-      border-radius: 2px;
-      background: rgba(20, 184, 166, 0.1);
-      transition: all 0.18s ease;
-    }
-
-    .ratio-item.active .ratio-visual {
-      background: var(--teal);
-      border-color: #fff;
-    }
-
-    .ratio-label {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--muted);
-      pointer-events: none;
-    }
-
-    .ratio-item.active .ratio-label {
-      color: var(--text);
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      min-height: 40px;
-      padding: 0 15px;
-      border-radius: var(--radius);
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      background: rgba(255, 255, 255, 0.07);
-      cursor: pointer;
-      text-decoration: none;
-      font-size: 14px;
-      font-weight: 700;
-      transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
-      white-space: nowrap;
-    }
-
-    .btn:hover {
-      transform: translateY(-1px);
-      border-color: rgba(255, 255, 255, 0.28);
-    }
-
-    .btn:disabled {
-      cursor: not-allowed;
-      opacity: 0.5;
-      transform: none;
-    }
-
-    .btn svg {
-      width: 17px;
-      height: 17px;
-      flex: 0 0 auto;
-    }
-
-    .btn-primary {
-      border-color: rgba(20, 184, 166, 0.45);
-      background: linear-gradient(135deg, #14b8a6, #2563eb);
-      color: white;
-      box-shadow: 0 14px 35px rgba(20, 184, 166, 0.28);
-    }
-
-    .btn-blue {
-      border-color: rgba(56, 189, 248, 0.45);
-      background: rgba(56, 189, 248, 0.15);
-      color: #7dd3fc;
-    }
-
-    .btn-blue:hover {
-      background: rgba(56, 189, 248, 0.25);
-    }
-
-    .btn-warn {
-      border-color: rgba(245, 158, 11, 0.38);
-      color: #fbbf24;
-    }
-
-    .icon-btn {
-      width: 42px;
-      height: 42px;
-      padding: 0;
-    }
-
-    .dropzone {
-      position: relative;
-      min-height: 124px;
-      display: grid;
-      place-items: center;
-      padding: 18px;
-      border: 1px dashed rgba(125, 211, 252, 0.45);
-      border-radius: var(--radius);
-      background: rgba(56, 189, 248, 0.055);
-      text-align: center;
-      color: var(--muted);
-      cursor: pointer;
-      transition: border-color 0.18s ease, background 0.18s ease;
-    }
-
-    .dropzone.dragging {
-      border-color: var(--teal);
-      background: rgba(20, 184, 166, 0.12);
-    }
-
-    .dropzone strong {
-      display: block;
-      color: var(--text);
-      margin-bottom: 6px;
-    }
-
-    .upload-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      margin-top: 12px;
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .thumbs {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
-      gap: 10px;
-      margin-top: 12px;
-    }
-
-    .thumb {
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      border-radius: var(--radius);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      background: rgba(255, 255, 255, 0.06);
-    }
-
-    .thumb-img {
-      position: relative;
-      aspect-ratio: 1;
-      overflow: hidden;
-    }
-
-    .thumb-img img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-
-    .thumb-img button {
-      position: absolute;
-      right: 5px;
-      top: 5px;
-      width: 26px;
-      height: 26px;
-      border: 0;
-      border-radius: 50%;
-      background: rgba(3, 7, 18, 0.72);
-      cursor: pointer;
-    }
-
-    .thumb-label {
-      padding: 4px 6px;
-      font-size: 10px;
-      font-weight: 600;
-      color: var(--muted);
-      text-align: center;
-      background: rgba(0, 0, 0, 0.28);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      line-height: 1.4;
-    }
-
-    .control-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 14px;
-      flex-wrap: wrap;
-    }
-
-    .status-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      min-height: 34px;
-      padding: 0 12px;
-      border-radius: 999px;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      background: rgba(255, 255, 255, 0.06);
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--soft);
-    }
-
-    .dot.ok {
-      background: var(--green);
-      box-shadow: 0 0 12px rgba(34, 197, 94, 0.75);
-    }
-
-    .dot.busy {
-      background: var(--amber);
-      box-shadow: 0 0 12px rgba(245, 158, 11, 0.75);
-    }
-
-    .dot.bad {
-      background: var(--red);
-      box-shadow: 0 0 12px rgba(251, 113, 133, 0.75);
-    }
-
-    .progress-wrap {
-      --progress: 0%;
-      position: relative;
-      display: block;
-      height: 3px;
-      overflow: visible;
-      border-radius: 999px;
-      isolation: isolate;
-    }
-
-    .progress-track,
-    .progress-bar {
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-    }
-
-    .progress-track {
-      background: rgba(148, 163, 184, 0.16);
-      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.22);
-    }
-
-    .progress-bar {
-      width: var(--progress);
-      background: linear-gradient(90deg, #14b8a6, #38bdf8 78%, rgba(248, 250, 252, 0.92));
-      box-shadow: 0 0 8px rgba(56, 189, 248, 0.28);
-      transition: width 0.28s ease;
-    }
-
-    .progress-glow {
-      position: absolute;
-      left: var(--progress);
-      top: 50%;
-      width: 10px;
-      height: 5px;
-      border-radius: 999px;
-      background: linear-gradient(90deg, rgba(248, 250, 252, 0), rgba(248, 250, 252, 0.92) 46%, rgba(125, 211, 252, 0.58));
-      box-shadow:
-        0 0 5px rgba(248, 250, 252, 0.62),
-        0 0 10px rgba(56, 189, 248, 0.42);
-      transform: translate(-50%, -50%);
-      animation: progressBreathe 1.55s ease-in-out infinite;
-      pointer-events: none;
-      z-index: 2;
-    }
-
-    .progress-wrap.is-zero .progress-glow {
-      left: 0%;
-      transform: translate(0, -50%);
-    }
-
-    .run-progress {
-      position: absolute;
-      left: 0;
-      right: 0;
-      bottom: 0;
-    }
-
-    @keyframes progressBreathe {
-
-      0%,
-      100% {
-        opacity: 0.68;
-      }
-
-      50% {
-        opacity: 1;
-      }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      .progress-glow {
-        animation: none;
-      }
-    }
-
-    .logs {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      gap: 12px;
-    }
-
-    .logbox {
-      min-height: 250px;
-      max-height: 410px;
-      overflow: auto;
-      padding: 12px;
-      border-radius: var(--radius);
-      background: rgba(3, 7, 18, 0.62);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      color: #cbd5e1;
-      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
-      font-size: 12px;
-      line-height: 1.55;
-      white-space: pre-wrap;
-    }
-
-    .result-browser {
-      display: grid;
-      grid-template-columns: 230px minmax(0, 1fr);
-      gap: 14px;
-      min-height: 0;
-      flex: 1;
-    }
-
-    .run-list,
-    .result-detail {
-      min-height: 0;
-      height: 100%;
-      overflow: auto;
-      scrollbar-gutter: stable;
-    }
-
-    .run-list {
-      display: grid;
-      align-content: start;
-      gap: 10px;
-      padding-right: 8px;
-    }
-
-    .result-group {
-      width: 100%;
-      min-height: 78px;
-      position: relative;
-      overflow: hidden;
-      display: grid;
-      grid-template-columns: 58px minmax(0, 1fr);
-      gap: 10px;
-      align-items: center;
-      padding: 8px 8px 12px;
-      text-align: left;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: var(--radius);
-      background: rgba(255, 255, 255, 0.045);
-      color: inherit;
-      cursor: pointer;
-    }
-
-    .result-group.active {
-      border-color: rgba(20, 184, 166, 0.55);
-      background: rgba(20, 184, 166, 0.12);
-    }
-
-    .run-cover {
-      width: 58px;
-      height: 58px;
-      display: grid;
-      place-items: center;
-      overflow: hidden;
-      border-radius: var(--radius);
-      background: rgba(255, 255, 255, 0.07);
-      color: var(--muted);
-      font-size: 11px;
-    }
-
-    .run-cover img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-
-    .run-card-title {
-      margin: 0 0 5px;
-      color: var(--text);
-      font-size: 13px;
-      font-weight: 700;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .run-card-meta {
-      display: grid;
-      gap: 3px;
-      color: var(--muted);
-      font-size: 11px;
-      line-height: 1.25;
-    }
-
-    .result-detail {
-      min-width: 0;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: var(--radius);
-      background: rgba(3, 7, 18, 0.28);
-    }
-
-    .detail-header {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 12px;
-      align-items: start;
-      padding: 12px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    .detail-title {
-      margin: 0 0 7px;
-      font-size: 15px;
-      color: var(--text);
-    }
-
-    .result-summary {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 7px;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.35;
-    }
-
-    .result-actions {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-
-    .btn-small {
-      min-height: 32px;
-      padding: 0 10px;
-      font-size: 12px;
-    }
-
-    .gallery {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 12px;
-      padding: 12px;
-    }
-
-    .empty-state {
-      min-height: 180px;
-      display: grid;
-      place-items: center;
-      color: var(--muted);
-      border: 1px dashed rgba(255, 255, 255, 0.14);
-      border-radius: var(--radius);
-      background: rgba(255, 255, 255, 0.035);
-      text-align: center;
-    }
-
-    .empty-state.compact {
-      min-height: 120px;
-    }
-
-    .logs-panel summary {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 14px 18px;
-      cursor: pointer;
-      color: #c7d2fe;
-      font-size: 14px;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-
-    .logs-panel summary::marker {
-      display: none;
-    }
-
-    .image-card {
-      overflow: hidden;
-      border-radius: var(--radius);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      background: rgba(255, 255, 255, 0.055);
-    }
-
-    .image-card button.preview {
-      display: block;
-      width: 100%;
-      padding: 0;
-      border: 0;
-      background: transparent;
-      cursor: zoom-in;
-    }
-
-    .image-card img {
-      display: block;
-      width: 100%;
-      aspect-ratio: 1;
-      object-fit: cover;
-    }
-
-    .image-meta {
-      display: grid;
-      gap: 7px;
-      padding: 10px;
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .image-meta-main,
-    .image-details {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      min-width: 0;
-    }
-
-    .image-details {
-      color: #cbd5e1;
-    }
-
-    .image-meta a {
-      color: #7dd3fc;
-      text-decoration: none;
-      font-weight: 700;
-    }
-
-    .notice {
-      display: none;
-      margin-bottom: 18px;
-      padding: 12px 14px;
-      border-radius: var(--radius);
-      border: 1px solid rgba(245, 158, 11, 0.35);
-      background: rgba(245, 158, 11, 0.1);
-      color: #fde68a;
-      font-size: 14px;
-    }
-
-    .notice.show {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-
-    .lightbox {
-      position: fixed;
-      inset: 0;
-      z-index: 20;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      background: rgba(0, 0, 0, 0.82);
-    }
-
-    .lightbox.show {
-      display: flex;
-    }
-
-    .lightbox img {
-      max-width: min(100%, 1180px);
-      max-height: 88vh;
-      border-radius: var(--radius);
-      box-shadow: 0 28px 80px rgba(0, 0, 0, 0.55);
-    }
-
-    .lightbox button {
-      position: fixed;
-      right: 22px;
-      top: 22px;
-      border: 1px solid rgba(255, 255, 255, 0.22);
-      background: rgba(255, 255, 255, 0.08);
-    }
-
-    @media (max-width: 980px) {
-      .main-grid {
-        grid-template-columns: 1fr;
-        min-height: 0;
-      }
-
-      .results-panel {
-        contain: none;
-      }
-
-      .logs {
-        grid-template-columns: 1fr;
-      }
-
-      .result-browser {
-        grid-template-columns: 1fr;
-        height: auto;
-        min-height: 0;
-      }
-
-      .run-list {
-        grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-        height: auto;
-        max-height: min(360px, 55vh);
-      }
-
-      .result-detail {
-        height: auto;
-        max-height: none;
-      }
-    }
-
-    @media (max-width: 640px) {
-      .page {
-        padding: 16px;
-      }
-
-      .topbar {
-        align-items: stretch;
-        flex-direction: column;
-      }
-
-      .top-actions {
-        justify-content: flex-start;
-      }
-
-      .config-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .settings-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .command-status {
-        width: 100%;
-      }
-
-      .command-status .status-pill {
-        flex: 0 1 auto;
-      }
-
-      .command-settings {
-        grid-template-columns: 1fr;
-        width: 100%;
-      }
-
-      .command-field--model,
-      .command-field--concurrency {
-        width: 100%;
-        min-width: 0;
-      }
-
-      .command-actions,
-      .command-actions .btn {
-        width: 100%;
-      }
-
-      .command-actions .btn {
-        flex: 1;
-      }
-
-      .top-actions .btn {
-        width: auto;
-      }
-
-      .section {
-        padding: 14px;
-      }
-
-      .btn {
-        width: 100%;
-      }
-    }
-
-    /* History Prompt Styles */
-    .prompt-input-wrapper {
-      position: relative;
-    }
-
-    .history-toggle-btn {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      width: 28px;
-      height: 28px;
-      padding: 0;
-      border: none;
-      background: rgba(255, 255, 255, 0.08);
-      border-radius: 6px;
-      color: var(--muted);
-      cursor: pointer;
-      display: grid;
-      place-items: center;
-      transition: background 0.18s, color 0.18s;
-      z-index: 5;
-    }
-
-    .history-toggle-btn:hover {
-      background: rgba(255, 255, 255, 0.15);
-      color: var(--text);
-    }
-
-    .history-popover {
-      position: absolute;
-      top: 45px;
-      right: 10px;
-      width: 420px;
-      background: rgba(30, 30, 30, 0.96);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 12px;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
-      backdrop-filter: blur(12px);
-      z-index: 10;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .history-popover[hidden] {
-      display: none !important;
-    }
-
-    .history-tabs {
-      display: flex;
-      padding: 8px 16px 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-      background: transparent;
-      gap: 16px;
-    }
-
-    .history-tab {
-      padding: 10px 4px;
-      background: transparent;
-      border: none;
-      color: rgba(255, 255, 255, 0.45);
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      position: relative;
-      transition: color 0.18s;
-    }
-
-    .history-tab::after {
-      content: '';
-      position: absolute;
-      bottom: -1px;
-      left: 0;
-      right: 0;
-      height: 2px;
-      background: transparent;
-      transition: background 0.18s;
-    }
-
-    .history-tab.active {
-      color: #ffffff;
-      font-weight: 600;
-    }
-
-    .history-tab.active::after {
-      background: #e4f5a3;
-    }
-
-    .history-search {
-      padding: 12px 16px;
-      position: relative;
-      border-bottom: none;
-    }
-
-    .history-search svg {
-      position: absolute;
-      left: 28px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--muted);
-      pointer-events: none;
-    }
-
-    .history-search input {
-      width: 100%;
-      height: 36px;
-      padding: 0 12px 0 32px;
-      background: rgba(255, 255, 255, 0.04);
-      border: none;
-      border-radius: 8px;
-      font-size: 13px;
-      color: var(--text);
-    }
-
-    .history-search input::placeholder {
-      color: rgba(255, 255, 255, 0.3);
-    }
-
-    .history-list {
-      max-height: 280px;
-      overflow-y: auto;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      scrollbar-width: thin;
-    }
-
-    .history-item {
-      padding: 14px 16px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      cursor: pointer;
-      transition: background 0.18s;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-    }
-
-    .history-item:hover {
-      background: rgba(255, 255, 255, 0.04);
-    }
-
-    .history-item-text {
-      flex: 1;
-      font-size: 13px;
-      line-height: 1.4;
-      color: var(--text);
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      word-break: break-all;
-    }
-
-    .history-item-actions {
-      display: flex;
-      gap: 6px;
-      opacity: 0;
-      transition: opacity 0.18s;
-    }
-
-    .history-item:hover .history-item-actions {
-      opacity: 1;
-    }
-
-    .history-action-btn {
-      width: 24px;
-      height: 24px;
-      padding: 0;
-      background: transparent;
-      border: none;
-      color: var(--muted);
-      cursor: pointer;
-      display: grid;
-      place-items: center;
-      border-radius: 4px;
-    }
-
-    .history-action-btn:hover {
-      background: rgba(255, 255, 255, 0.1);
-      color: var(--text);
-    }
-
-    .history-action-btn.star-active {
-      color: #e4f5a3;
-    }
-
-    .history-action-btn.delete-btn:hover {
-      color: var(--red);
-    }
-
-    .history-footer {
-      display: flex;
-      justify-content: space-between;
-      padding: 12px 16px;
-      background: transparent;
-      border-top: none;
-    }
-
-    .history-modal-content {
-      width: min(600px, 90vw);
-      max-height: 80vh;
-      background: var(--bg);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      display: flex;
-      flex-direction: column;
-      position: relative;
-    }
-
-    .history-modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--line);
-    }
-
-    .history-modal-header h3 {
-      margin: 0;
-      font-size: 16px;
-      color: var(--text);
-    }
-
-    .history-modal-body {
-      flex: 1;
-      overflow-y: auto;
-      padding: 12px 0;
-    }
-
-    .history-modal-body .history-item {
-      padding: 12px 20px;
-    }
-
-    .history-modal-body .history-item-text {
-      -webkit-line-clamp: 3;
-    }
-
-    .empty-history {
-      padding: 30px;
-      text-align: center;
-      color: var(--muted);
-      font-size: 13px;
-    }
-  </style>
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/themes/apple-light.css">
+  <link rel="stylesheet" href="/static/css/themes/apple-dark.css">
+  <link rel="stylesheet" href="/static/css/themes/claude-light.css">
+  <link rel="stylesheet" href="/static/css/themes/claude-dark.css">
+  <link rel="stylesheet" href="/static/css/themes/vercel-light.css">
+  <link rel="stylesheet" href="/static/css/themes/vercel-dark.css">
+  <link rel="stylesheet" href="/static/css/base.css">
+  <script>
+    (function() {
+      var s = localStorage.getItem('theme-style') || 'claude';
+      var m = localStorage.getItem('theme-mode') || 'dark';
+      document.documentElement.setAttribute('data-theme', s + '-' + m);
+    })();
+  </script>
 </head>
 
 <body>
@@ -1360,6 +35,16 @@
         <p>工作台</p>
       </div>
       <div class="top-actions">
+        <div class="theme-controls" style="display: flex; gap: 8px;">
+          <select id="theme-style-select" class="btn btn-small" onchange="ThemeManager.setStyle(this.value)" style="width: auto; min-width: 100px;">
+            <option value="apple">Apple Style</option>
+            <option value="claude">Claude Style</option>
+            <option value="vercel">Vercel Style</option>
+          </select>
+          <button id="theme-mode-toggle" class="btn btn-small icon-btn" onclick="ThemeManager.toggleMode()" title="切换模式">
+            <!-- Icon injected via JS -->
+          </button>
+        </div>
         <div class="command-status">
           <span class="status-pill"><span id="keyDot" class="dot"></span><span id="keyLabel">未配置</span></span>
           <span class="status-pill"><span id="runDot" class="dot"></span><span id="runStatus">待开始</span></span>
@@ -1437,9 +122,9 @@
                 </div>
                 <div class="history-footer">
                   <button type="button" id="historyClearBtn" class="btn btn-ghost btn-small"
-                    style="color: var(--muted); border: none; background: transparent; padding: 0 5px;">清除历史</button>
+                    style="color: var(--ink-secondary); border: none; background: transparent; padding: 0 5px;">清除历史</button>
                   <button type="button" id="historyMoreBtn" class="btn btn-ghost btn-small"
-                    style="color: var(--muted); border: none; background: transparent; padding: 0 5px;">查看更多</button>
+                    style="color: var(--ink-secondary); border: none; background: transparent; padding: 0 5px;">查看更多</button>
                 </div>
               </div>
             </div>
@@ -1451,9 +136,9 @@
             </div>
 
             <div class="upload-tabs"
-              style="display: flex; gap: 8px; margin-bottom: 12px; background: rgba(255,255,255,0.04); padding: 4px; border-radius: 10px; width: fit-content;">
+              style="display: flex; gap: 8px; margin-bottom: 12px; background: var(--surface-primary); padding: 4px; border-radius: 10px; width: fit-content;">
               <button type="button" class="btn btn-small tab-btn" id="tabUploadBtn"
-                style="background: var(--surface); color: var(--text); border: none;">
+                style="background: var(--surface-primary); color: var(--ink); border: none;">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                   <polyline points="17 8 12 3 7 8" />
@@ -1462,7 +147,7 @@
                 本地上传
               </button>
               <button type="button" class="btn btn-small tab-btn" id="tabUrlBtn"
-                style="background: transparent; color: var(--muted); border: none;">
+                style="background: transparent; color: var(--ink-secondary); border: none;">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
                   <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
@@ -1485,13 +170,13 @@
             </div>
 
             <div id="urlPanel" style="display: none;">
-              <div style="font-size: 14px; margin-bottom: 8px; color: var(--muted);">输入图片链接</div>
+              <div style="font-size: 14px; margin-bottom: 8px; color: var(--ink-secondary);">输入图片链接</div>
               <div style="display: flex; gap: 10px; margin-bottom: 14px;">
                 <input id="urlInput" type="text" placeholder="https://example.com/input.png"
-                  style="flex: 1; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 10px 14px; color: var(--text); outline: none; font-size: 14px;" />
+                  style="flex: 1; background: var(--surface-primary); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; color: var(--ink); outline: none; font-size: 14px;" />
                 <button type="button" class="btn btn-ghost" id="addUrlBtn" style="white-space: nowrap;">添加链接</button>
               </div>
-              <div id="urlStatus" style="font-size: 13px; color: var(--muted);">暂未添加链接图片</div>
+              <div id="urlStatus" style="font-size: 13px; color: var(--ink-secondary);">暂未添加链接图片</div>
             </div>
 
             <div id="thumbs" class="thumbs"></div>
@@ -1544,7 +229,7 @@
             <div class="section-title">
               <h2>生成结果</h2>
               <div style="display:flex;align-items:center;gap:8px;">
-                <span id="galleryCount" class="status-pill">0 张结果</span>
+                <span id="galleryCount" class="info-label">0 张结果</span>
                 <button id="clearResultsBtn" class="btn btn-small" type="button">清空结果</button>
               </div>
             </div>
@@ -1600,7 +285,7 @@
       <div class="history-modal-header">
         <h3>全部记录</h3>
         <button id="closeHistoryModal" class="btn icon-btn" type="button" title="关闭"
-          style="border:none;background:transparent;width:32px;height:32px;color:var(--muted);">
+          style="border:none;background:transparent;width:32px;height:32px;color:var(--ink-secondary);">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M18 6 6 18" />
             <path d="m6 6 12 12" />
@@ -2324,17 +1009,18 @@
       const params = run.params || {};
       els.runDetail.innerHTML = `
         <div class="detail-header">
-          <div>
-            <h3 class="detail-title">${escapeHtml(run.prompt || "未命名结果组")}</h3>
-            <div class="result-summary">
-              <span>${escapeHtml(run.model || params.model || "未知模型")}</span>
-              ${summarizePayload(params).map(item => `<span>${escapeHtml(item)}</span>`).join("")}
-              <span>${formatRunTime(run.created_at)}</span>
-            </div>
+          <h3 class="detail-title" style="grid-column: 1; grid-row: 1;">${escapeHtml(run.prompt || "未命名结果组")}</h3>
+          <div style="grid-column: 2; grid-row: 1; display: flex; justify-content: flex-end; align-items: flex-start;">
+            <button class="btn btn-small" type="button" data-reuse-run="${run.run_id}" title="将参数填回输入表单" style="font-size: 13px; min-height: 26px; padding: 0 8px;">复用参数</button>
           </div>
-          <div class="result-actions">
-            <span class="status-pill">${statusLabel(run.status)} · ${run.images.length}/${run.total || run.images.length}</span>
-            <button class="btn btn-small btn-warn" type="button" data-delete-run="${run.run_id}">删除整组</button>
+          <div class="result-summary" style="grid-column: 1; grid-row: 2;">
+            <span>${escapeHtml(run.model || params.model || "未知模型")}</span>
+            ${summarizePayload(params).map(item => `<span>${escapeHtml(item)}</span>`).join("")}
+            <span>${formatRunTime(run.created_at)}</span>
+            <span>${statusLabel(run.status)} · ${run.images.length}/${run.total || run.images.length}</span>
+          </div>
+          <div style="grid-column: 2; grid-row: 2; display: flex; justify-content: flex-end; align-items: flex-start;">
+            <button class="btn btn-small btn-warn" type="button" data-delete-run="${run.run_id}" style="font-size: 13px; min-height: 26px; padding: 0 8px;">删除整组</button>
           </div>
         </div>
         <div id="detailGallery" class="gallery">
@@ -2343,6 +1029,7 @@
       `;
       els.detailGallery = document.getElementById("detailGallery");
       els.runDetail.querySelector("[data-delete-run]").addEventListener("click", () => deleteRunGroup(run.run_id));
+      els.runDetail.querySelector("[data-reuse-run]").addEventListener("click", () => reuseParameters(run.run_id));
       els.detailGallery.querySelectorAll(".preview").forEach(button => {
         button.addEventListener("click", () => openLightbox(button.dataset.url));
       });
@@ -2426,6 +1113,67 @@
       } catch (error) {
         logSystem(error.message);
       }
+    }
+
+    function reuseParameters(runId) {
+      const run = runs.find(item => item.run_id === runId);
+      if (!run) return;
+      const params = run.params || {};
+
+      // 1. 基本参数
+      els.prompt.value = run.prompt || params.prompt || "";
+      els.model.value = run.model || params.model || "gpt-image-2-flatfee";
+      els.concurrency.value = params.concurrency || 10;
+      els.quality.value = params.quality || "";
+      els.outputFormat.value = params.output_format || "";
+
+      // 2. 尺寸与比例
+      if (params.ratio) {
+        renderRatioGrid(params.ratio);
+        onRatioChange(params.ratio);
+      } else if (params.size) {
+        // 尝试匹配已知比例
+        const r = sizeToRatio[params.size];
+        if (r) {
+          renderRatioGrid(r);
+          onRatioChange(r);
+          els.size.value = params.size;
+        } else {
+          // 自定义尺寸
+          renderRatioGrid("custom");
+          onRatioChange("custom");
+          els.customSize.value = params.size;
+        }
+      }
+      
+      // 触发模型可见性逻辑
+      updateModelVisibility();
+
+      // 3. 参考图
+      if (params.image_urls && params.image_urls.length) {
+        uploadedImages = params.image_urls.map(url => ({
+          url,
+          name: url.split("/").pop() || "历史参考图",
+          preview: url,
+          cached: true,
+          dimensions: ""
+        }));
+        renderThumbs();
+        // 尝试读取尺寸
+        uploadedImages.forEach(item => {
+          getImageDimensions(item.url).then(dims => {
+            item.dimensions = dims;
+            renderThumbs();
+          });
+        });
+      } else {
+        uploadedImages = [];
+        renderThumbs();
+      }
+
+      logSystem("已复用任务参数。");
+      // 滚动到顶部方便修改
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     function isRunActive(runId) {
@@ -2623,19 +1371,19 @@
       els.dropzone.addEventListener("drop", event => uploadFiles(event.dataTransfer.files));
 
       els.tabUploadBtn.addEventListener("click", () => {
-        els.tabUploadBtn.style.background = "var(--surface)";
-        els.tabUploadBtn.style.color = "var(--text)";
+        els.tabUploadBtn.style.background = "var(--surface-primary)";
+        els.tabUploadBtn.style.color = "var(--ink)";
         els.tabUrlBtn.style.background = "transparent";
-        els.tabUrlBtn.style.color = "var(--muted)";
+        els.tabUrlBtn.style.color = "var(--ink-secondary)";
         els.uploadPanel.style.display = "block";
         els.urlPanel.style.display = "none";
       });
 
       els.tabUrlBtn.addEventListener("click", () => {
-        els.tabUrlBtn.style.background = "var(--surface)";
-        els.tabUrlBtn.style.color = "var(--text)";
+        els.tabUrlBtn.style.background = "var(--surface-primary)";
+        els.tabUrlBtn.style.color = "var(--ink)";
         els.tabUploadBtn.style.background = "transparent";
-        els.tabUploadBtn.style.color = "var(--muted)";
+        els.tabUploadBtn.style.color = "var(--ink-secondary)";
         els.uploadPanel.style.display = "none";
         els.urlPanel.style.display = "block";
       });
@@ -2747,19 +1495,28 @@
         div.innerHTML = `
           <div class="history-item-text" title="` + item.text.replace(/"/g, '&quot;') + `">` + escapeHtml(item.text) + `</div>
           <div class="history-item-actions">
-            <button class="history-action-btn ` + (isFav ? 'star-active' : '') + `" title="` + (isFav ? '取消收藏' : '收藏') + `" onclick="event.stopPropagation(); window.toggleFavorite('` + item.text.replace(/'/g, "\\'") + `')">
+            <button class="history-action-btn ` + (isFav ? 'star-active' : '') + `" title="` + (isFav ? '取消收藏' : '收藏') + `" data-action="fav">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="` + (isFav ? 'currentColor' : 'none') + `" stroke="currentColor" stroke-width="2">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
               </svg>
             </button>
-            <button class="history-action-btn delete-btn" title="删除" onclick="event.stopPropagation(); window.deleteHistoryItem('` + item.text.replace(/'/g, "\\'") + `', ` + (historyState.popoverTab === 'favorites') + `)">
+            <button class="history-action-btn delete-btn" title="删除" data-action="delete">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
               </svg>
             </button>
           </div>
         `;
-        div.addEventListener('click', () => {
+        div.addEventListener('click', (e) => {
+          const btn = e.target.closest('.history-action-btn');
+          if (btn) {
+            if (btn.dataset.action === 'fav') {
+              window.toggleFavorite(item.text);
+            } else if (btn.dataset.action === 'delete') {
+              window.deleteHistoryItem(item.text, historyState.popoverTab === 'favorites');
+            }
+            return;
+          }
           els.prompt.value = item.text;
           histEls.popover.hidden = true;
         });
@@ -2784,22 +1541,31 @@
         div.innerHTML = `
           <div class="history-item-text" title="` + item.text.replace(/"/g, '&quot;') + `">
             ` + escapeHtml(item.text) + `
-            <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">` + dateStr + `</div>
+            <div style="font-size: 11px; color: var(--ink-secondary); margin-top: 4px;">` + dateStr + `</div>
           </div>
           <div class="history-item-actions" style="opacity: 1;">
-            <button class="history-action-btn ` + (isFav ? 'star-active' : '') + `" title="` + (isFav ? '取消收藏' : '收藏') + `" onclick="event.stopPropagation(); window.toggleFavorite('` + item.text.replace(/'/g, "\\'") + `')">
+            <button class="history-action-btn ` + (isFav ? 'star-active' : '') + `" title="` + (isFav ? '取消收藏' : '收藏') + `" data-action="fav">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="` + (isFav ? 'currentColor' : 'none') + `" stroke="currentColor" stroke-width="2">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
               </svg>
             </button>
-            <button class="history-action-btn delete-btn" title="删除" onclick="event.stopPropagation(); window.deleteHistoryItem('` + item.text.replace(/'/g, "\\'") + `', ` + (historyState.modalTab === 'favorites') + `)">
+            <button class="history-action-btn delete-btn" title="删除" data-action="delete">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
               </svg>
             </button>
           </div>
         `;
-        div.addEventListener('click', () => {
+        div.addEventListener('click', (e) => {
+          const btn = e.target.closest('.history-action-btn');
+          if (btn) {
+            if (btn.dataset.action === 'fav') {
+              window.toggleFavorite(item.text);
+            } else if (btn.dataset.action === 'delete') {
+              window.deleteHistoryItem(item.text, historyState.modalTab === 'favorites');
+            }
+            return;
+          }
           els.prompt.value = item.text;
           histEls.modal.classList.remove('show');
         });
@@ -2892,6 +1658,7 @@
 
     init();
   </script>
+  <script src="/static/js/theme.js"></script>
 </body>
 
 </html>

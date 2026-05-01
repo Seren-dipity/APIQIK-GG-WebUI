@@ -1,0 +1,63 @@
+[data-theme="vercel-dark"] {
+  /* ================= 1. 色彩系统 ================= */
+  --bg: #000000;
+  --surface-primary: #000000;
+  --surface-secondary: #111111;
+  --surface-elevated: #171717;
+  --surface-input: #000000;
+  --surface-code: #111111;
+
+  /* 文本系统 */
+  --ink: #ffffff;
+  --ink-secondary: #a1a1a1;
+  --ink-tertiary: #666666;
+  --ink-on-accent: #000000;
+  --ink-on-code: #ffffff;
+
+  /* 品牌与强调色 */
+  --accent: #ffffff;
+  --accent-hover: #ebebeb;
+  --accent-subtle: rgba(255, 255, 255, 0.1);
+  --accent-glow: rgba(255, 255, 255, 0.05);
+
+  /* 边框系统 */
+  --border: rgba(255, 255, 255, 0.14);
+  --border-strong: rgba(255, 255, 255, 0.2);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+
+  /* 状态反馈 */
+  --success: #0070f3;
+  --warning: #f5a623;
+  --error: #ff0000;
+  --amber: #f5a623;
+  --green: #00ff00;
+  --red: #ff0000;
+  --btn-danger-border: var(--error);
+  --btn-danger-text: var(--error);
+  --btn-danger-bg: transparent;
+  --btn-danger-hover-bg: var(--error);
+  --btn-danger-hover-text: #ffffff;
+  --btn-danger-hover-border: var(--error);
+
+  /* ================= 2. 几何与视觉特效 ================= */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-pill: 9999px;
+
+  --shadow: 0px 2px 2px rgba(0, 0, 0, 0.4), 0px 0px 0px 1px rgba(255, 255, 255, 0.14);
+  --shadow-heavy: 0px 8px 8px -8px rgba(0, 0, 0, 0.4), 0px 0px 0px 1px rgba(255, 255, 255, 0.14);
+  
+  --backdrop-blur: blur(8px);
+  --overlay: rgba(0, 0, 0, 0.8);
+  
+  /* ================= 3. 字体 ================= */
+  --font-display: "Geist", system-ui, sans-serif;
+  --font-body: "Geist", system-ui, sans-serif;
+  --font-mono: "Geist Mono", monospace;
+
+  /* ================= 4. 其它细节 ================= */
+  --transition-fast: 0.12s;
+  --btn-active-transform: scale(0.98);
+}

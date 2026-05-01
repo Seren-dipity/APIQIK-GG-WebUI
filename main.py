@@ -206,6 +206,7 @@ async def delete_history(run_id: str):
 # ──────────────────────────────────────────────
 
 app.mount("/output", StaticFiles(directory=str(OUTPUT_DIR)), name="output")
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
 # ──────────────────────────────────────────────
