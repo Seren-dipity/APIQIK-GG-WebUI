@@ -984,7 +984,7 @@
             <span class="run-card-meta">
               <strong class="run-card-title">${escapeHtml(run.prompt || `第 ${index + 1} 组`)}</strong>
               <span>${run.images.length} 张 · ${dimensions}</span>
-              <span>${created} · ${statusLabel(run.status)}</span>
+              <span>${created} · ${statusLabel(run)}</span>
             </span>
             ${progress}
           </button>
@@ -1017,7 +1017,7 @@
             <span>${escapeHtml(run.model || params.model || "未知模型")}</span>
             ${summarizePayload(params).map(item => `<span>${escapeHtml(item)}</span>`).join("")}
             <span>${formatRunTime(run.created_at)}</span>
-            <span>${statusLabel(run.status)} · ${run.images.length}/${run.total || run.images.length}</span>
+            <span>${statusLabel(run)} · ${run.images.length}/${run.total || run.images.length}</span>
           </div>
           <div style="grid-column: 2; grid-row: 2; display: flex; justify-content: flex-end; align-items: flex-start;">
             <button class="btn btn-small btn-warn" type="button" data-delete-run="${run.run_id}" style="font-size: 13px; min-height: 26px; padding: 0 8px;">删除整组</button>
@@ -1083,6 +1083,26 @@
         const data = await response.json();
         if (!response.ok) throw new Error(data.detail || "历史加载失败");
         runs = (data.runs || []).map(run => normalizeRun(run));
+
+        // 一次性迁移旧版记录中的提示词到新的历史记录组件
+        if (!localStorage.getItem('apiqik_prompt_migrated') && runs.length > 0) {
+          // 从旧到新遍历，因为 unshift 会把元素插到头部，这样最新的才会在最前面
+          for (let i = runs.length - 1; i >= 0; i--) {
+            const run = runs[i];
+            if (run.prompt && typeof run.prompt === 'string') {
+              const text = run.prompt.trim();
+              if (text) {
+                historyState.history = historyState.history.filter(item => item.text !== text);
+                historyState.history.unshift({ text, timestamp: new Date(run.created_at).getTime() || Date.now() });
+              }
+            }
+          }
+          if (historyState.history.length > 100) historyState.history = historyState.history.slice(0, 100);
+          savePromptState();
+          if (typeof renderHistoryList === 'function') renderHistoryList();
+          localStorage.setItem('apiqik_prompt_migrated', 'true');
+        }
+
         activeRunId = runs[0]?.run_id || null;
         activeRunGroup = runs[0] || null;
         renderResults();
@@ -1187,11 +1207,15 @@
       return date.toLocaleString("zh-CN", { hour12: false, month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
     }
 
-    function statusLabel(status) {
+    function statusLabel(run) {
+      const status = typeof run === "string" ? run : run.status;
+      if (status === "completed" && typeof run === "object" && (!run.images || run.images.length === 0)) {
+        return "生成失败";
+      }
       return {
         running: "生成中",
-        completed: "已完成",
-        error: "有错误"
+        completed: "已结束",
+        error: "生成失败"
       }[status] || status || "未知";
     }
 
