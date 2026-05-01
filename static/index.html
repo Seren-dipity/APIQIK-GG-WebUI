@@ -1209,14 +1209,12 @@
 
     function statusLabel(run) {
       const status = typeof run === "string" ? run : run.status;
-      if (status === "completed" && typeof run === "object" && (!run.images || run.images.length === 0)) {
-        return "生成失败";
-      }
-      return {
-        running: "生成中",
-        completed: "已结束",
-        error: "生成失败"
-      }[status] || status || "未知";
+      if (status === "running") return "生成中";
+
+      const hasImages = typeof run === "object" && run.images && run.images.length > 0;
+      if (hasImages) return "已结束";
+
+      return "生成失败";
     }
 
     function escapeHtml(value) {
