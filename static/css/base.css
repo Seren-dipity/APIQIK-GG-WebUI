@@ -124,8 +124,9 @@
     .help-icon-btn:hover,
     .help-icon-btn:focus-visible,
     .help-icon-btn[aria-expanded="true"] {
-      color: var(--ink-secondary);
-      border-color: var(--ink-secondary);
+      color: var(--accent);
+      border-color: var(--accent);
+      background: var(--accent-subtle);
       outline: none;
     }
 
@@ -576,8 +577,12 @@
     .btn-warn:hover {
       background: var(--btn-danger-hover-bg, var(--error));
       color: var(--btn-danger-hover-text, var(--ink-on-accent));
-      border-color: var(--btn-danger-hover-border, var(--error));
     }
+
+    .prompt-area textarea {
+      min-height: 236px;
+    }
+
 
     .icon-btn {
       width: 42px;
@@ -601,38 +606,44 @@
     }
 
     .upload-provider {
-      display: inline-grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 4px;
-      padding: 4px;
+      display: flex;
+      gap: 6px;
       margin-bottom: 8px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: var(--surface-primary);
     }
-
+    
     .upload-provider label {
-      display: grid;
-      place-items: center;
-      min-height: 30px;
-      padding: 0 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 32px;
+      padding: 0 12px;
+      border: 1px solid var(--border);
       border-radius: 8px;
+      background: var(--surface-primary);
       color: var(--ink-secondary);
       font-size: 12px;
       font-weight: 600;
       cursor: pointer;
+      transition: all 0.2s ease;
+      margin-bottom: 0;
     }
-
+    
     .upload-provider input {
       position: absolute;
       opacity: 0;
       pointer-events: none;
     }
-
+    
     .upload-provider label:has(input:checked) {
-      background: var(--surface-elevated);
-      color: var(--ink);
-      box-shadow: inset 0 0 0 1px var(--border-subtle);
+      background: var(--accent-subtle);
+      color: var(--accent);
+      border-color: var(--accent);
+      box-shadow: none;
+    }
+
+    .upload-provider label:hover:not(:has(input:checked)) {
+      background: var(--surface-secondary);
+      border-color: var(--border-strong);
     }
 
     .upload-provider-hint {

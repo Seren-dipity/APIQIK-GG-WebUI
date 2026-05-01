@@ -190,12 +190,27 @@
                 <div class="upload-provider" aria-label="本地上传图床" style="margin-bottom: 0;">
                   <label>
                     <input id="uploadProviderPublic" type="radio" name="uploadProvider" value="public" checked />
-                    <span>公共存储 (仅HuggingFace支持)</span>
+                    <span>公共存储</span>
                   </label>
                   <label>
                     <input id="uploadProviderR2" type="radio" name="uploadProvider" value="r2" />
-                    <span>私有存储 (自定义)</span>
+                    <span>私有存储</span>
                   </label>
+                </div>
+                <button id="storageHelp" class="help-icon-btn" type="button" aria-label="查看存储说明"
+                  aria-expanded="false" aria-controls="storagePopover">?</button>
+                <div id="storagePopover" class="pricing-popover" role="tooltip" hidden>
+                  <div class="pricing-section">
+                    <div class="pricing-title">存储方式说明</div>
+                    <div class="pricing-row" style="display: block; margin-bottom: 10px;">
+                      <strong style="display: block; margin-bottom: 4px; color: var(--ink);">公共存储</strong>
+                      <span style="color: var(--ink-secondary); font-size: 11px;">使用服务端配置的默认存储。仅在 HuggingFace 部署环境中作为默认推荐。</span>
+                    </div>
+                    <div class="pricing-row" style="display: block;">
+                      <strong style="display: block; margin-bottom: 4px; color: var(--ink);">私有存储</strong>
+                      <span style="color: var(--ink-secondary); font-size: 11px;">使用你在设置页配置的 Cloudflare R2，适合长期保留参考图，数据自主掌控。</span>
+                    </div>
+                  </div>
                 </div>
               </div>
               <p id="uploadProviderHint" class="upload-provider-hint">使用服务器提供的公共存储，图片将上传至管理员配置的 R2 存储桶。</p>
@@ -521,7 +536,9 @@
       lightboxImage: document.getElementById("lightboxImage"),
       closeLightbox: document.getElementById("closeLightbox"),
       modelPricingHelp: document.getElementById("modelPricingHelp"),
-      modelPricingPopover: document.getElementById('modelPricingPopover')
+      modelPricingPopover: document.getElementById('modelPricingPopover'),
+      storageHelp: document.getElementById("storageHelp"),
+      storagePopover: document.getElementById("storagePopover")
     };
 
     const activeTasks = new Map();
@@ -549,7 +566,7 @@
         let visualStyle = "";
         let innerHtml = "";
         if (r === "auto") {
-          visualStyle = "width: 20px; height: 20px; border-radius: 50%; border-style: dashed;";
+          visualStyle = "width: 20px; height: 20px; border-radius: 50%; border-style: dashed; background: transparent;";
         } else if (r === "custom") {
           visualStyle = "width: 18px; height: 18px; border-style: dashed;";
         } else {
@@ -700,53 +717,13 @@
         setOpen(true);
       });
       popover.addEventListener("mouseleave", scheduleClose);
-      document.addEventListener("click", event => {
-        if (popover.hidden) return;
-        if (popover.contains(event.target) || helpBtn.contains(event.target)) return;
-        setOpen(false);
-      });
-      document.addEventListener("keydown", event => {
-        if (event.key === "Escape") setOpen(false);
-      });
-    }
-
     function initModelPricingHelp() {
-      if (!els.modelPricingHelp || !els.modelPricingPopover) return;
-
-      const setOpen = open => {
-        els.modelPricingPopover.hidden = !open;
-        els.modelPricingHelp.setAttribute("aria-expanded", String(open));
-      };
-      let closeTimer = null;
-      const scheduleClose = () => {
-        clearTimeout(closeTimer);
-        closeTimer = setTimeout(() => setOpen(false), 120);
-      };
-      const toggleOpen = () => setOpen(els.modelPricingPopover.hidden);
-
-      els.modelPricingHelp.addEventListener("click", event => {
-        event.stopPropagation();
-        toggleOpen();
-      });
-      els.modelPricingHelp.addEventListener("mouseenter", () => {
-        clearTimeout(closeTimer);
-        setOpen(true);
-      });
-      els.modelPricingHelp.addEventListener("focus", () => setOpen(true));
-      els.modelPricingHelp.addEventListener("mouseleave", scheduleClose);
-      els.modelPricingPopover.addEventListener("mouseenter", () => {
-        clearTimeout(closeTimer);
-        setOpen(true);
-      });
-      els.modelPricingPopover.addEventListener("mouseleave", scheduleClose);
-      document.addEventListener("click", event => {
-        if (els.modelPricingPopover.hidden) return;
-        if (els.modelPricingPopover.contains(event.target) || els.modelPricingHelp.contains(event.target)) return;
-        setOpen(false);
-      });
-      document.addEventListener("keydown", event => {
-        if (event.key === "Escape") setOpen(false);
-      });
+      if (els.modelPricingHelp && els.modelPricingPopover) {
+        bindHelpPopover(els.modelPricingHelp, els.modelPricingPopover);
+      }
+      if (els.storageHelp && els.storagePopover) {
+        bindHelpPopover(els.storageHelp, els.storagePopover);
+      }
     }
 
     function fixCustomSize() {
