@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="/static/css/themes/vercel-light.css">
   <link rel="stylesheet" href="/static/css/themes/vercel-dark.css">
   <script>
-    (function() {
+    (function () {
       var s = localStorage.getItem('theme-style') || 'claude';
       var m = localStorage.getItem('theme-mode') || 'dark';
       document.documentElement.setAttribute('data-theme', s + '-' + m);
@@ -359,12 +359,14 @@
     </a>
     <span class="nav-title">⚙ 密钥配置</span>
     <div class="theme-controls" style="display: flex; gap: 8px;">
-      <select id="theme-style-select" class="btn btn-ghost" onchange="ThemeManager.setStyle(this.value)" style="width: auto; min-width: 100px; padding: 4px 8px; border-radius: 8px; font-size: 12px;">
+      <select id="theme-style-select" class="btn btn-ghost" onchange="ThemeManager.setStyle(this.value)"
+        style="width: auto; min-width: 100px; padding: 4px 8px; border-radius: 8px; font-size: 12px;">
         <option value="apple">Apple Style</option>
         <option value="claude">Claude Style</option>
         <option value="vercel">Vercel Style</option>
       </select>
-      <button id="theme-mode-toggle" class="btn btn-ghost" onclick="ThemeManager.toggleMode()" title="切换模式" style="padding: 4px; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 8px;">
+      <button id="theme-mode-toggle" class="btn btn-ghost" onclick="ThemeManager.toggleMode()" title="切换模式"
+        style="padding: 4px; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 8px;">
         <!-- Icon injected via JS -->
       </button>
     </div>
@@ -391,7 +393,7 @@
     <div class="field">
       <div>
         <div class="field-label">API Key <span class="required">*</span></div>
-        <div class="field-hint">图像生成接口鉴权密钥</div>
+        <div class="field-hint">用codex-image分组的密钥</div>
       </div>
       <div class="field-input-wrap">
         <input id="apiqik_key" type="password" placeholder="sk-..." autocomplete="off" />
@@ -407,7 +409,7 @@
     <div class="field">
       <div>
         <div class="field-label">VIP API Key</div>
-        <div class="field-hint">使用 gpt-image-2-vip 模型时调用</div>
+        <div class="field-hint">default分组的密钥, gpt-image-2-vip 模型需要</div>
       </div>
       <div class="field-input-wrap">
         <input id="apiqik_vip_key" type="password" placeholder="sk-..." autocomplete="off" />
