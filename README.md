@@ -1,3 +1,13 @@
+---
+title: GG Panel APIQIK
+emoji: 🚀
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # APIQIK Image Generator
 
 基于 https://img.apiqik.online/ 做的个人优化版。
