@@ -2,19 +2,27 @@ name: Sync to Hugging Face
 on:
   push:
     branches: [main]
-  # 允许手动触发
   workflow_dispatch:
 
 jobs:
   sync-to-hub:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          lfs: true
       - name: Push to hub
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          git push --force https://Maboubou:$HF_TOKEN@huggingface.co/spaces/Maboubou/GG-panel-apiqik main
+
+          git config --global user.email "sync@example.com"
+          git config --global user.name "Sync Bot"
+          
+
+          git checkout --orphan latest_state
+          git add -A
+          git commit -m "deploy latest state without history"
+          
+          # 强制推送到 Hugging Face 的 main 分支
+          git push --force https://Maboubou:$HF_TOKEN@huggingface.co/spaces/Maboubou/GG-panel-apiqik latest_state:main
