@@ -507,7 +507,7 @@
       fileInput: document.getElementById("fileInput"),
       thumbs: document.getElementById("thumbs"),
       uploadStatus: document.getElementById("uploadStatus"),
-      uploadProviderPublic: document.getElementById("uploadProviderImage16"),
+      uploadProviderPublic: document.getElementById("uploadProviderPublic"),
       uploadProviderR2: document.getElementById("uploadProviderR2"),
       uploadProviderHint: document.getElementById("uploadProviderHint"),
       urlStatus: document.getElementById("urlStatus"),
@@ -521,9 +521,7 @@
       lightboxImage: document.getElementById("lightboxImage"),
       closeLightbox: document.getElementById("closeLightbox"),
       modelPricingHelp: document.getElementById("modelPricingHelp"),
-      modelPricingPopover: document.getElementById('modelPricingPopover'),
-      image16Help: document.getElementById('image16Help'),
-      image16Popover: document.getElementById('image16Popover')
+      modelPricingPopover: document.getElementById('modelPricingPopover')
     };
 
     const activeTasks = new Map();
@@ -809,9 +807,16 @@
     function updateKeyState() {
       localStorage.removeItem("apiqik_vip_key");
       const apiKey = localStorage.getItem("apiqik_key");
+      const r2 = getR2Config();
       const hasKey = !!apiKey;
+      const hasR2 = !!r2;
+
       els.keyDot.className = `dot ${hasKey ? "ok" : "bad"}`;
-      els.keyLabel.textContent = hasKey ? "已配置" : "未配置";
+      
+      let label = hasKey ? "已配置" : "未配置";
+      if (hasKey && !hasR2) label += " (R2未配置)";
+      
+      els.keyLabel.textContent = label;
       els.keyNotice.classList.toggle("show", !hasKey);
     }
 
@@ -881,50 +886,18 @@
         : "使用服务器提供的公共存储，图片将上传至管理员配置的 R2 存储桶。";
     }
 
-    return token;
-    }
-
-    return false;
-    }
-
-    return true;
-    }
-
-              }
-    uploadedImages = uploadedImages.filter(item => !(item.provider === "image16" && ids.has(item.image_id)));
-    renderThumbs();
-    }
-
     function parseImageProvider(url) {
-      if (!url) return { provider: "unknown" };
-      if (url.includes("i.111666.best/image/")) {
-        const image_id = url.split("/").pop();
-        return { provider: "image16", image_id };
-      }
       return { provider: "r2" };
     }
 
     function getProxiedUrl(item) {
       if (!item) return "";
       if (item.preview && item.preview.startsWith('blob:')) return item.preview;
-
-      const { provider, image_id } = item.provider ? item : parseImageProvider(item.url);
-      if (provider === "image16" && image_id) {
-        return `/api/image-host/proxy/${image_id}`;
-      }
       return item.url || item;
     }
 
     function getImageUrls() {
-      return uploadedImages.map(item => {
-        const { provider, image_id } = item.provider ? item : parseImageProvider(item.url);
-        if (provider === "image16" && image_id) {
-          // 转换为绝对路径，以便外部 API (OpenAI/Midjourney) 可以访问
-          const proxyPath = `/api/image-host/proxy/${image_id}`;
-          return window.location.origin + proxyPath;
-        }
-        return item.url;
-      });
+      return uploadedImages.map(item => item.url);
     }
 
     function readImageHashCache() {
@@ -1501,7 +1474,7 @@
         submittedRun = createRunGroup(payload, data.run || { run_id: data.run_id || data.task_id, params: payload, prompt, model: payload.model });
         activeRunGroup = submittedRun;
         setGroupStatus(submittedRun, "running");
-        subscribeTask(data.task_id, submittedRun.run_id, currentImage16CleanupRefs());
+        subscribeTask(data.task_id, submittedRun.run_id);
         updateActiveTaskState();
       } catch (error) {
         setGroupStatus(submittedRun, "error");
@@ -1511,9 +1484,9 @@
       }
     }
 
-    function subscribeTask(taskId, runId, cleanupRefs = []) {
+    function subscribeTask(taskId, runId) {
       const source = new EventSource(`/api/tasks/${taskId}/stream`);
-      activeTasks.set(taskId, { source, runId, cleanupRefs });
+      activeTasks.set(taskId, { source, runId });
       source.onmessage = (message) => {
         const event = JSON.parse(message.data);
         handleTaskEvent(event, runId, taskId);
@@ -1556,10 +1529,6 @@
           group.done = group.total || group.done || group.images.length;
         }
         setGroupStatus(group, "completed");
-        const task = activeTasks.get(taskId);
-        if (task) {
-          task.source.close();
-          cleanupImage16References(task.cleanupRefs || []);
         }
         activeTasks.delete(taskId);
         updateActiveTaskState();
@@ -1569,7 +1538,7 @@
     function bindUpload() {
       els.dropzone.addEventListener("click", () => els.fileInput.click());
       els.fileInput.addEventListener("change", () => uploadFiles(els.fileInput.files));
-      [els.uploadProviderImage16, els.uploadProviderR2].forEach(input => {
+      [els.uploadProviderPublic, els.uploadProviderR2].forEach(input => {
         if (input) input.addEventListener("change", updateUploadProviderHint);
       });
       updateUploadProviderHint();
