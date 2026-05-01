@@ -906,14 +906,14 @@
       }
     }
 
-    function getCachedReferenceImage(hash) {
-      const cached = readImageHashCache()[hash];
+    function getCachedReferenceImage(provider, hash) {
+      const cached = readImageHashCache()[`${provider}:${hash}`];
       return cached?.url ? cached : null;
     }
 
-    function cacheReferenceImage(hash, url, name) {
+    function cacheReferenceImage(provider, hash, url, name) {
       const cache = readImageHashCache();
-      cache[hash] = {
+      cache[`${provider}:${hash}`] = {
         url,
         name,
         savedAt: new Date().toISOString()
@@ -1004,9 +1004,9 @@
           continue;
         }
 
-        const cached = getCachedReferenceImage(hash);
+        const cached = getCachedReferenceImage(provider, hash);
         if (cached) {
-          const entry = { url: cached.url, name: file.name, preview, hash, cached: true, provider: "r2", dimensions: "" };
+          const entry = { url: cached.url, name: file.name, preview, hash, cached: true, provider, dimensions: "" };
           uploadedImages.push(entry);
           logSystem(`参考图命中本地缓存，跳过上传: ${file.name}`);
           renderThumbs();
@@ -1023,9 +1023,9 @@
           const response = await fetch("/api/upload-image", { method: "POST", body: form });
           const data = await response.json();
           if (!response.ok) throw new Error(data.detail || "上传失败");
-          const entry = { url: data.url, name: file.name, preview, hash, cached: false, provider: "r2", dimensions: "" };
+          const entry = { url: data.url, name: file.name, preview, hash, cached: false, provider, dimensions: "" };
           uploadedImages.push(entry);
-          cacheReferenceImage(hash, data.url, file.name);
+          cacheReferenceImage(provider, hash, data.url, file.name);
           logSystem(`参考图已上传: ${file.name}`);
           renderThumbs();
           getImageDimensions(preview).then(dims => { entry.dimensions = dims; renderThumbs(); });
