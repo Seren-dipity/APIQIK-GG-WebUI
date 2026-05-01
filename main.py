@@ -21,7 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 import core as api_core
-from utils import image_host
+import os
 
 app = FastAPI(title="APIQIK Image Generator")
 
@@ -83,90 +83,49 @@ async def settings():
 @app.post("/api/upload-image")
 async def upload_image(
     file: UploadFile = File(...),
-    cf_access_key: str = Form(...),
-    cf_secret_key: str = Form(...),
-    cf_account_id: str = Form(...),
-    cf_bucket: str = Form(...),
-    cf_public_url: str = Form(...),
+    cf_access_key: str | None = Form(None),
+    cf_secret_key: str | None = Form(None),
+    cf_account_id: str | None = Form(None),
+    cf_bucket: str | None = Form(None),
+    cf_public_url: str | None = Form(None),
 ):
-    """接收前端上传的参考图，中转至 Cloudflare R2，返回公开 URL。"""
+    """接收前端上传的参考图，中转至 Cloudflare R2。支持从请求参数或服务器环境变量获取配置。"""
+    # 优先从前端传参获取，如果没有则回退到环境变量（服务端默认 R2）
+    access_key = cf_access_key or os.getenv("CF_ACCESS_KEY")
+    secret_key = cf_secret_key or os.getenv("CF_SECRET_KEY")
+    account_id = cf_account_id or os.getenv("CF_ACCOUNT_ID")
+    bucket = cf_bucket or os.getenv("CF_BUCKET")
+    public_url = cf_public_url or os.getenv("CF_PUBLIC_URL")
+
+    if not all([access_key, secret_key, account_id, bucket, public_url]):
+        raise HTTPException(
+            status_code=400, 
+            detail="未配置 Cloudflare R2 存储。请在'设置'中填写密钥，或联系管理员配置服务端默认存储。"
+        )
+
     suffix = Path(file.filename).suffix if file.filename else ".png"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         tmp.write(await file.read())
         tmp_path = Path(tmp.name)
 
     try:
-        public_url = await asyncio.to_thread(
+        public_url_result = await asyncio.to_thread(
             api_core.upload_image_to_r2,
             tmp_path,
-            access_key=cf_access_key,
-            secret_key=cf_secret_key,
-            account_id=cf_account_id,
-            bucket_name=cf_bucket,
-            public_url_prefix=cf_public_url,
+            access_key=access_key,
+            secret_key=secret_key,
+            account_id=account_id,
+            bucket_name=bucket,
+            public_url_prefix=public_url,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         tmp_path.unlink(missing_ok=True)
 
-    return {"url": public_url}
+    return {"url": public_url_result}
 
 
-@app.post("/api/image-host/upload")
-async def upload_image_host(
-    file: UploadFile = File(...),
-    token: str = Form(...),
-):
-    """Upload a reference image to the zero-config temporary image host."""
-    suffix = Path(file.filename).suffix if file.filename else ".png"
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        tmp.write(await file.read())
-        tmp_path = Path(tmp.name)
-
-    try:
-        result = await asyncio.to_thread(image_host.upload_to_image16, tmp_path, token)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        tmp_path.unlink(missing_ok=True)
-
-    return {"provider": "image16", **result}
-
-
-@app.delete("/api/image-host/{image_id}")
-async def delete_image_host(image_id: str, req: ImageHostDeleteRequest):
-    """Delete a temporary image-host upload using the browser token that created it."""
-    try:
-        deleted = await asyncio.to_thread(image_host.delete_from_image16, image_id, req.token)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    if not deleted:
-        raise HTTPException(status_code=502, detail="Image host deletion failed")
-    return {"deleted": True, "image_id": image_id}
-
-
-@app.get("/api/image-host/proxy/{image_id}")
-async def proxy_image_host(image_id: str):
-    """Proxy image requests to bypass image16's direct download restrictions (403 Forbidden)."""
-    import requests
-    url = f"{image_host.IMAGE16_BASE_URL}/image/{image_id}"
-    
-    def _stream_response():
-        with requests.get(url, headers={"User-Agent": image_host.IMAGE16_USER_AGENT}, stream=True, timeout=30) as r:
-            if r.status_code != 200:
-                raise HTTPException(status_code=r.status_code, detail="Failed to fetch image from host")
-            for chunk in r.iter_content(chunk_size=8192):
-                yield chunk
-
-    # 获取原始响应头以确定内容类型
-    try:
-        head_resp = requests.head(url, headers={"User-Agent": image_host.IMAGE16_USER_AGENT}, timeout=5)
-        content_type = head_resp.headers.get("Content-Type", "image/png")
-    except:
-        content_type = "image/png"
-
-    return StreamingResponse(_stream_response(), media_type=content_type)
 
 
 # ──────────────────────────────────────────────

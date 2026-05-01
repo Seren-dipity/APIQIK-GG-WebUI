@@ -188,29 +188,17 @@
               <div class="upload-provider-wrapper" style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
                 <div class="upload-provider" aria-label="本地上传图床" style="margin-bottom: 0;">
                   <label>
-                    <input id="uploadProviderImage16" type="radio" name="uploadProvider" value="image16" checked />
-                    <span>临时图床</span>
+                    <input id="uploadProviderPublic" type="radio" name="uploadProvider" value="public" checked />
+                    <span>公共存储 (免配置)</span>
                   </label>
                   <label>
                     <input id="uploadProviderR2" type="radio" name="uploadProvider" value="r2" />
-                    <span>Cloudflare R2</span>
+                    <span>私有存储 (自定义)</span>
                   </label>
                 </div>
-                <div style="position: relative;">
-                  <button id="image16Help" class="help-icon-btn" type="button" aria-label="临时图床说明"
-                    aria-expanded="false" aria-controls="image16Popover">?</button>
-                  <div id="image16Popover" class="pricing-popover" role="tooltip" hidden style="left: auto; right: 0; width: 240px; top: calc(100% + 4px);">
-                    <div class="pricing-section">
-                      <div class="pricing-title">临时图床说明</div>
-                      <p style="margin: 0; font-size: 12px; color: var(--ink-secondary); line-height: 1.5;">
-                        使用 <a href="https://111666.best/" target="_blank" style="color: var(--accent); text-decoration: none;">111666.best</a> 服务。
-                        图片将上传至该公开平台，请注意隐私。任务结束后系统会尝试自动删除。
-                      </p>
-                    </div>
-                  </div>
                 </div>
               </div>
-              <p id="uploadProviderHint" class="upload-provider-hint">无需配置，任务结束后自动清理。</p>
+              <p id="uploadProviderHint" class="upload-provider-hint">使用服务器提供的公共存储，图片将上传至管理员配置的 R2 存储桶。</p>
               <div id="dropzone" class="dropzone">
                 <div>
                   <strong>点击选择或拖拽图片到这里</strong>
@@ -519,7 +507,7 @@
       fileInput: document.getElementById("fileInput"),
       thumbs: document.getElementById("thumbs"),
       uploadStatus: document.getElementById("uploadStatus"),
-      uploadProviderImage16: document.getElementById("uploadProviderImage16"),
+      uploadProviderPublic: document.getElementById("uploadProviderImage16"),
       uploadProviderR2: document.getElementById("uploadProviderR2"),
       uploadProviderHint: document.getElementById("uploadProviderHint"),
       urlStatus: document.getElementById("urlStatus"),
@@ -547,7 +535,7 @@
     let activeRunId = null;
     let uploadedImages = [];
     const imageHashCacheKey = "apiqik_image_hash_cache";
-    const image16TokenKey = "apiqik_image16_token";
+    
 
     function fillSelect(select, values, selected) {
       select.innerHTML = values.map(value => {
@@ -714,12 +702,7 @@
       });
     }
 
-    function initImage16Help() {
-      if (!els.image16Help || !els.image16Popover) return;
-      bindHelpPopover(els.image16Help, els.image16Popover);
-    }
-
-    function initModelPricingHelp() {
+        function initModelPricingHelp() {
       if (!els.modelPricingHelp || !els.modelPricingPopover) return;
 
       const setOpen = open => {
@@ -888,75 +871,26 @@
     }
 
     function getUploadProvider() {
-      return els.uploadProviderR2?.checked ? "r2" : "image16";
+      return els.uploadProviderR2?.checked ? "r2" : "public";
     }
 
     function updateUploadProviderHint() {
       if (!els.uploadProviderHint) return;
       els.uploadProviderHint.textContent = getUploadProvider() === "r2"
         ? "使用设置页 Cloudflare R2 配置，适合长期保留参考图。"
-        : "无需配置，任务结束后自动清理。";
+        : "使用服务器提供的公共存储，图片将上传至管理员配置的 R2 存储桶。";
     }
 
-    function getImage16Token() {
-      let token = localStorage.getItem(image16TokenKey);
-      if (!token) {
-        const random = crypto.randomUUID
-          ? crypto.randomUUID().replaceAll("-", "").slice(0, 12)
-          : Math.random().toString(16).slice(2, 14).padEnd(12, "0");
-        token = `at_${random}`;
-        localStorage.setItem(image16TokenKey, token);
-      }
-      return token;
+          return token;
     }
 
-    async function uploadFileToImage16(file) {
-      const form = new FormData();
-      form.append("file", file);
-      form.append("token", getImage16Token());
-      const response = await fetch("/api/image-host/upload", { method: "POST", body: form });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.detail || "上传失败");
-      return data;
+              return false;
     }
 
-    function isImage16ReferenceInActiveTask(imageId) {
-      for (const task of activeTasks.values()) {
-        if ((task.cleanupRefs || []).some(ref => ref.image_id === imageId)) return true;
-      }
-      return false;
+          return true;
     }
 
-    async function deleteImage16Reference(item) {
-      if (!item?.image_id || item.provider !== "image16") return false;
-      const response = await fetch(`/api/image-host/${encodeURIComponent(item.image_id)}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: getImage16Token() })
-      });
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.detail || "临时图床删除失败");
-      }
-      return true;
-    }
-
-    function currentImage16CleanupRefs() {
-      return uploadedImages
-        .filter(item => item.provider === "image16" && item.image_id)
-        .map(item => ({ image_id: item.image_id, url: item.url }));
-    }
-
-    async function cleanupImage16References(refs = []) {
-      if (!refs.length) return;
-      const ids = new Set(refs.map(ref => ref.image_id).filter(Boolean));
-      for (const ref of refs) {
-        try {
-          await deleteImage16Reference({ provider: "image16", image_id: ref.image_id });
-        } catch (error) {
-          logSystem(`临时图床清理失败: ${ref.image_id} ${error.message}`);
-        }
-      }
+              }
       uploadedImages = uploadedImages.filter(item => !(item.provider === "image16" && ids.has(item.image_id)));
       renderThumbs();
     }
@@ -1067,7 +1001,7 @@
       const provider = getUploadProvider();
       const r2 = provider === "r2" ? getR2Config() : null;
       if (provider === "r2" && !r2) {
-        alert("未配置 Cloudflare R2，无法使用本地上传。\n请在设置页进行配置，或切换至「网络链接」输入参考图。");
+        alert("未配置私有 Cloudflare R2，无法使用该选项。\n请在设置页进行配置，或切换至「公共存储」使用服务端默认图床。");
         logSystem("Cloudflare R2 配置不完整，无法上传参考图。");
         return;
       }
@@ -1080,21 +1014,7 @@
         const file = list[i];
         const preview = URL.createObjectURL(file);
 
-        if (provider === "image16") {
-          try {
-            const data = await uploadFileToImage16(file);
-            const entry = { url: data.url, name: file.name, preview, provider: "image16", image_id: data.image_id, dimensions: "" };
-            uploadedImages.push(entry);
-            logSystem(`参考图已上传到临时图床: ${file.name}`);
-            renderThumbs();
-            getImageDimensions(preview).then(dims => { entry.dimensions = dims; renderThumbs(); });
-          } catch (error) {
-            URL.revokeObjectURL(preview);
-            logSystem(`参考图上传失败: ${file.name} ${error.message}`);
-          }
-          els.uploadStatus.textContent = `上传中 ${i + 1}/${list.length}`;
-          continue;
-        }
+        
 
         let hash = "";
         try {
@@ -1127,7 +1047,7 @@
 
         const form = new FormData();
         form.append("file", file);
-        Object.entries(r2).forEach(([key, value]) => form.append(key, value));
+        if (r2) { Object.entries(r2).forEach(([key, value]) => form.append(key, value)); }
 
         try {
           const response = await fetch("/api/upload-image", { method: "POST", body: form });
@@ -1173,14 +1093,7 @@
           if (removed?.preview && removed.preview.startsWith('blob:')) {
             URL.revokeObjectURL(removed.preview);
           }
-          if (removed?.provider === "image16" && !isImage16ReferenceInActiveTask(removed.image_id)) {
-            try {
-              await deleteImage16Reference(removed);
-              logSystem(`已删除临时参考图: ${removed.name}`);
-            } catch (error) {
-              logSystem(`临时参考图删除失败: ${removed.name} ${error.message}`);
-            }
-          }
+          
           renderThumbs();
         });
       });
