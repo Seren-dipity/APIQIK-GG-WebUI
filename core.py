@@ -298,6 +298,74 @@ def delete_image_from_r2(
         return False
 
 
+def load_json_from_r2(
+    *,
+    object_key: str,
+    access_key: str,
+    secret_key: str,
+    account_id: str,
+    bucket_name: str,
+    timeout: int = 60,
+) -> Any | None:
+    """Load a JSON object from Cloudflare R2. Return None when the object is missing."""
+    if boto3 is None:
+        raise RuntimeError("boto3 is not installed. Please run 'pip install boto3'")
+
+    s3_client = boto3.client(
+        "s3",
+        endpoint_url=f"https://{account_id}.r2.cloudflarestorage.com",
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+        config=Config(signature_version="s3v4", connect_timeout=timeout, read_timeout=timeout),
+        region_name="auto",
+    )
+
+    try:
+        response = s3_client.get_object(Bucket=bucket_name, Key=object_key)
+    except Exception as exc:
+        error_code = getattr(exc, "response", {}).get("Error", {}).get("Code")
+        if error_code in {"NoSuchKey", "404", "NotFound"}:
+            return None
+        raise RuntimeError(f"Cloudflare R2 JSON load failed: {exc}") from exc
+
+    body = response["Body"].read().decode("utf-8")
+    return json.loads(body)
+
+
+def save_json_to_r2(
+    *,
+    object_key: str,
+    data: Any,
+    access_key: str,
+    secret_key: str,
+    account_id: str,
+    bucket_name: str,
+    timeout: int = 60,
+) -> None:
+    """Save a JSON object to Cloudflare R2."""
+    if boto3 is None:
+        raise RuntimeError("boto3 is not installed. Please run 'pip install boto3'")
+
+    s3_client = boto3.client(
+        "s3",
+        endpoint_url=f"https://{account_id}.r2.cloudflarestorage.com",
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+        config=Config(signature_version="s3v4", connect_timeout=timeout, read_timeout=timeout),
+        region_name="auto",
+    )
+    body = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
+    try:
+        s3_client.put_object(
+            Bucket=bucket_name,
+            Key=object_key,
+            Body=body,
+            ContentType="application/json; charset=utf-8",
+        )
+    except Exception as exc:
+        raise RuntimeError(f"Cloudflare R2 JSON save failed: {exc}") from exc
+
+
 def resolve_image_inputs(
     image_inputs: list[str],
     *,

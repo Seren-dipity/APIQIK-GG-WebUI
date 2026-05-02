@@ -277,18 +277,75 @@ async def delete_all_uploads(
 
 def _load_uploads(session_id: str) -> list[dict]:
     path = _ensure_session_dir(session_id) / "uploads.json"
+    remote_uploads = _load_public_uploads_from_r2(session_id)
     if not path.exists():
-        return []
+        return remote_uploads
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-        return data if isinstance(data, list) else []
+        local_uploads = data if isinstance(data, list) else []
     except:
-        return []
+        local_uploads = []
+
+    if not remote_uploads:
+        return local_uploads
+
+    merged: dict[str, dict] = {}
+    for item in local_uploads + remote_uploads:
+        if isinstance(item, dict) and item.get("url"):
+            merged[item["url"]] = item
+    return list(merged.values())
 
 
 def _save_uploads(session_id: str, data: list[dict]):
     path = _ensure_session_dir(session_id) / "uploads.json"
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    _save_public_uploads_to_r2(session_id, data)
+
+
+def _public_r2_config() -> dict[str, str] | None:
+    config = {
+        "access_key": os.getenv("CF_ACCESS_KEY") or "",
+        "secret_key": os.getenv("CF_SECRET_KEY") or "",
+        "account_id": os.getenv("CF_ACCOUNT_ID") or "",
+        "bucket_name": os.getenv("CF_BUCKET") or "",
+    }
+    return config if all(config.values()) else None
+
+
+def _public_uploads_index_key(session_id: str) -> str:
+    return f"apiqik_indexes/{session_id}/uploads.json"
+
+
+def _load_public_uploads_from_r2(session_id: str) -> list[dict]:
+    config = _public_r2_config()
+    if not config:
+        return []
+    try:
+        data = api_core.load_json_from_r2(
+            object_key=_public_uploads_index_key(session_id),
+            **config,
+        )
+    except Exception:
+        return []
+    return data if isinstance(data, list) else []
+
+
+def _save_public_uploads_to_r2(session_id: str, data: list[dict]) -> None:
+    config = _public_r2_config()
+    if not config:
+        return
+    public_uploads = [
+        item for item in data
+        if isinstance(item, dict) and item.get("is_public") is True
+    ]
+    try:
+        api_core.save_json_to_r2(
+            object_key=_public_uploads_index_key(session_id),
+            data=public_uploads,
+            **config,
+        )
+    except Exception:
+        pass
 
 
 
