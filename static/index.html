@@ -364,6 +364,21 @@
     </div>
   </div>
 
+  <div id="runLogModal" class="lightbox">
+    <div class="run-log-modal-content">
+      <div class="run-log-modal-header">
+        <h3 id="runLogTitle">运行日志</h3>
+        <button id="closeRunLog" class="btn icon-btn" type="button" title="关闭">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
+        </button>
+      </div>
+      <pre id="runLogContent" class="run-log-content"></pre>
+    </div>
+  </div>
+
   <script>
     // 每个浏览器生成唯一 session_id，存入 localStorage，确保数据与其他用户隔离
     const SESSION_ID = (() => {
@@ -557,6 +572,10 @@
       lightbox: document.getElementById("lightbox"),
       lightboxImage: document.getElementById("lightboxImage"),
       closeLightbox: document.getElementById("closeLightbox"),
+      runLogModal: document.getElementById("runLogModal"),
+      runLogTitle: document.getElementById("runLogTitle"),
+      runLogContent: document.getElementById("runLogContent"),
+      closeRunLog: document.getElementById("closeRunLog"),
       modelPricingHelp: document.getElementById("modelPricingHelp"),
       modelPricingPopover: document.getElementById('modelPricingPopover'),
       storageHelp: document.getElementById("storageHelp"),
@@ -1122,6 +1141,9 @@
 
     function normalizeRun(run, fallbackPayload = null) {
       const params = run.params || fallbackPayload || {};
+      const images = run.images || [];
+      const total = Number(run.total || params.concurrency || 0);
+      const done = Number(run.done || images.length || 0);
       return {
         run_id: run.run_id,
         created_at: run.created_at || new Date().toISOString(),
@@ -1130,9 +1152,12 @@
         prompt: run.prompt || params.prompt || "",
         model: run.model || params.model || "",
         params,
-        total: run.total || params.concurrency || 0,
-        done: run.done || (run.images || []).length,
-        images: run.images || []
+        total,
+        done,
+        errorCount: Number(run.errorCount || 0),
+        lastError: run.lastError || "",
+        logs: Array.isArray(run.logs) ? run.logs : [],
+        images
       };
     }
 
@@ -1141,6 +1166,43 @@
       const done = Math.max(Number(run.done) || 0, run.images.length);
       if (!total) return run.status === "completed" ? 100 : 0;
       return Math.max(0, Math.min(100, Math.round((done / total) * 100)));
+    }
+
+    function deriveRunState(run) {
+      const total = Number(run?.total) || Number(run?.params?.concurrency) || run?.images?.length || 0;
+      const done = Math.max(Number(run?.done) || 0, run?.images?.length || 0);
+      const failed = Math.max(0, total - done);
+      const status = typeof run === "string" ? run : run?.status;
+
+      if (status === "running") {
+        return {
+          state: "running",
+          label: total ? `生成中 ${done}/${total}` : "生成中",
+          detail: run?.errorCount ? `已重试 ${run.errorCount} 次` : ""
+        };
+      }
+
+      if (status === "error" || status === "failed") {
+        return {
+          state: "failed",
+          label: total ? `生成失败 ${done}/${total}` : "生成失败",
+          detail: run?.lastError || ""
+        };
+      }
+
+      if (total && done >= total) {
+        return { state: "completed", label: `已完成 ${done}/${total}`, detail: "" };
+      }
+
+      if (done > 0) {
+        return { state: "partial", label: `部分完成 ${done}/${total || done}`, detail: failed ? `失败 ${failed} 张` : "" };
+      }
+
+      if (status === "completed") {
+        return { state: "failed", label: `生成失败 0/${total || 0}`, detail: run?.lastError || "所有 Key 都未生成成功" };
+      }
+
+      return { state: "failed", label: "生成失败", detail: run?.lastError || "" };
     }
 
     function createRunGroup(payload, serverRun) {
@@ -1165,21 +1227,29 @@
         els.runList.innerHTML = '<div class="empty-state compact">暂无历史组</div>';
         return;
       }
+      let lastDateLabel = "";
       els.runList.innerHTML = runs.map((run, index) => {
         const cover = run.images[0]?.url;
         const dimensions = run.images[0]?.dimensions_label || run.params?.size || "默认尺寸";
-        const created = formatRunTime(run.created_at);
         const percent = progressWidth(run);
+        const runState = deriveRunState(run);
+        const dateLabel = formatRunDate(run.created_at);
+        const dateDivider = dateLabel && dateLabel !== lastDateLabel
+          ? `<div class="run-date-divider">${escapeHtml(dateLabel)}</div>`
+          : "";
+        if (dateLabel) lastDateLabel = dateLabel;
         const progress = run.status === "running"
           ? `<span class="progress-wrap run-progress ${percent === 0 ? "is-zero" : ""}" style="--progress:${percent}%"><span class="progress-track"></span><span class="progress-bar"></span><span class="progress-glow"></span></span>`
           : "";
         return `
+          ${dateDivider}
           <button class="result-group ${run.run_id === activeRunId ? "active" : ""}" type="button" data-run-id="${run.run_id}">
             <span class="run-cover">${cover ? `<img src="${cover}" alt="第 ${index + 1} 组封面" loading="lazy" />` : "等待"}</span>
             <span class="run-card-meta">
               <strong class="run-card-title">${escapeHtml(run.prompt || `第 ${index + 1} 组`)}</strong>
               <span>${run.images.length} 张 · ${dimensions}</span>
-              <span>${created} · ${statusLabel(run)}</span>
+              <span>${escapeHtml(runState.label)}</span>
+              ${runState.detail ? `<span>${escapeHtml(runState.detail)}</span>` : ""}
             </span>
             ${progress}
           </button>
@@ -1202,6 +1272,7 @@
         return;
       }
       const params = run.params || {};
+      const runState = deriveRunState(run);
       els.runDetail.innerHTML = `
         <div class="detail-header">
           <h3 class="detail-title" style="grid-column: 1; grid-row: 1;">${escapeHtml(run.prompt || "未命名结果组")}</h3>
@@ -1212,7 +1283,8 @@
             <span>${escapeHtml(run.model || params.model || "未知模型")}</span>
             ${summarizePayload(params).map(item => `<span>${escapeHtml(item)}</span>`).join("")}
             <span>${formatRunTime(run.created_at)}</span>
-            <span>${statusLabel(run)} · ${run.images.length}/${run.total || run.images.length}</span>
+            <span>${escapeHtml(runState.label)}</span>
+            <button class="run-log-link" type="button" data-run-log="${run.run_id}">查看日志</button>
           </div>
           <div class="detail-actions detail-actions--danger">
             <button class="btn btn-small btn-warn" type="button" data-delete-run="${run.run_id}">删除整组</button>
@@ -1225,6 +1297,7 @@
       els.detailGallery = document.getElementById("detailGallery");
       els.runDetail.querySelector("[data-delete-run]").addEventListener("click", () => deleteRunGroup(run.run_id));
       els.runDetail.querySelector("[data-reuse-run]").addEventListener("click", () => reuseParameters(run.run_id));
+      els.runDetail.querySelector("[data-run-log]").addEventListener("click", () => openRunLog(run.run_id));
       els.detailGallery.querySelectorAll(".preview").forEach(button => {
         button.addEventListener("click", () => openLightbox(button.dataset.url));
       });
@@ -1256,6 +1329,13 @@
     function setGroupStatus(group, status) {
       if (!group) return;
       group.status = status;
+      renderResults();
+    }
+
+    function markGroupFailed(group, message = "") {
+      if (!group) return;
+      group.status = "error";
+      if (message) group.lastError = message;
       renderResults();
     }
 
@@ -1412,14 +1492,40 @@
       return date.toLocaleString("zh-CN", { hour12: false, month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
     }
 
+    function formatRunDate(value) {
+      if (!value) return "";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+      return date.toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" });
+    }
+
+    function appendRunLog(runId, message, level = "info") {
+      const group = runs.find(run => run.run_id === runId);
+      if (!group || !message) return;
+      const time = new Date().toLocaleTimeString("zh-CN", { hour12: false });
+      group.logs = group.logs || [];
+      group.logs.push({ time, level, message });
+    }
+
+    function openRunLog(runId) {
+      const group = runs.find(run => run.run_id === runId);
+      if (!group) return;
+      const title = group.prompt || "未命名结果组";
+      const logs = group.logs || [];
+      els.runLogTitle.textContent = `运行日志 · ${title}`;
+      els.runLogContent.textContent = logs.length
+        ? logs.map(item => `[${item.time}] ${item.message}`).join("\n")
+        : "暂无该组运行日志。历史记录只保存结果，不包含上次页面会话的实时日志。";
+      els.runLogModal.classList.add("show");
+    }
+
+    function closeRunLog() {
+      els.runLogModal.classList.remove("show");
+      els.runLogContent.textContent = "";
+    }
+
     function statusLabel(run) {
-      const status = typeof run === "string" ? run : run.status;
-      if (status === "running") return "生成中";
-
-      const hasImages = typeof run === "object" && run.images && run.images.length > 0;
-      if (hasImages) return "已结束";
-
-      return "生成失败";
+      return deriveRunState(run).label;
     }
 
     function escapeHtml(value) {
@@ -1542,9 +1648,11 @@
       };
       source.addEventListener("ping", () => { });
       source.onerror = () => {
+        if (!activeTasks.has(taskId)) return;
         logSystem("实时连接中断。");
         const group = runs.find(run => run.run_id === runId);
-        setGroupStatus(group, "error");
+        appendRunLog(runId, "实时连接中断。", "error");
+        markGroupFailed(group, "实时连接中断");
         source.close();
         activeTasks.delete(taskId);
         updateActiveTaskState();
@@ -1556,14 +1664,18 @@
       const group = runs.find(run => run.run_id === runId);
       if (event.type === "log") {
         logSystem(event.message);
+        appendRunLog(runId, event.message);
       } else if (event.type === "progress") {
         if (group) {
           group.done = event.done;
           group.total = event.total;
+          appendRunLog(runId, `进度更新: ${event.done}/${event.total}`);
           renderResults();
         }
       } else if (event.type === "result") {
-        logSystem(`任务 ${event.idx} 成功，耗时 ${event.duration}s`);
+        const successMessage = `任务 ${event.idx} 成功，耗时 ${event.duration}s`;
+        logSystem(successMessage);
+        appendRunLog(runId, successMessage, "success");
         const imagesToAdding = (event.images || event.urls || []).map(img => {
           const i = typeof img === "string" ? { url: img } : img;
           if (event.duration) i.duration = event.duration;
@@ -1571,14 +1683,22 @@
         });
         addGalleryImages(imagesToAdding, event.idx, group);
       } else if (event.type === "error") {
-        logSystem(`任务 ${event.idx} 失败: ${event.message}`);
-        setGroupStatus(group, "error");
+        const errorMessage = `任务 ${event.idx} 失败: ${event.message}`;
+        logSystem(errorMessage);
+        appendRunLog(runId, errorMessage, "error");
+        if (group) {
+          group.errorCount = (group.errorCount || 0) + 1;
+          group.lastError = event.message || errorMessage;
+          renderResults();
+        }
       } else if (event.type === "done") {
         if (group) {
           group.done = Number.isFinite(event.done) ? event.done : group.images.length;
           group.total = event.total || group.total;
         }
+        appendRunLog(runId, `批量生成结束，成功 ${event.done}/${event.total} 张。`);
         setGroupStatus(group, "completed");
+        activeTasks.get(taskId)?.source?.close();
         activeTasks.delete(taskId);
         updateActiveTaskState();
       }
@@ -1893,6 +2013,10 @@
       els.closeLightbox.addEventListener("click", closeLightbox);
       els.lightbox.addEventListener("click", event => {
         if (event.target === els.lightbox) closeLightbox();
+      });
+      els.closeRunLog.addEventListener("click", closeRunLog);
+      els.runLogModal.addEventListener("click", event => {
+        if (event.target === els.runLogModal) closeRunLog();
       });
       window.addEventListener("storage", updateKeyState);
       logSystem("Web 应用已就绪。");

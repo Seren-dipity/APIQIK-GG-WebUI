@@ -911,20 +911,28 @@
     .run-list {
       display: grid;
       align-content: start;
-      gap: 10px;
+      gap: 8px;
       padding-right: 8px;
+    }
+
+    .run-date-divider {
+      margin: 4px 2px 0;
+      color: var(--ink-secondary);
+      font-size: 11px;
+      line-height: 1;
+      opacity: 0.72;
     }
 
     .result-group {
       width: 100%;
-      min-height: 78px;
+      min-height: 74px;
       position: relative;
       overflow: hidden;
       display: grid;
       grid-template-columns: 58px minmax(0, 1fr);
       gap: 10px;
       align-items: center;
-      padding: 8px 8px 12px;
+      padding: 8px 8px 11px;
       text-align: left;
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
@@ -1027,10 +1035,27 @@
     .result-summary {
       display: flex;
       flex-wrap: wrap;
+      align-items: center;
       gap: 8px;
       color: var(--ink-secondary);
       font-size: 13px;
       line-height: 1.4;
+    }
+
+    .run-log-link {
+      appearance: none;
+      border: 0;
+      border-bottom: 1px dotted currentColor;
+      padding: 0;
+      background: transparent;
+      color: var(--ink-secondary);
+      font: inherit;
+      line-height: 1.2;
+      cursor: pointer;
+    }
+
+    .run-log-link:hover {
+      color: var(--ink);
     }
 
     .btn-small {
@@ -1181,6 +1206,60 @@
       top: 22px;
       border: 1px solid var(--border-strong);
       background: var(--border-subtle);
+    }
+
+    .run-log-modal-content {
+      width: min(720px, calc(100vw - 32px));
+      max-height: min(78vh, 720px);
+      display: grid;
+      grid-template-rows: auto 1fr;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--surface-primary);
+      box-shadow: 0 28px 80px var(--shadow-heavy);
+    }
+
+    .run-log-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .run-log-modal-header h3 {
+      min-width: 0;
+      margin: 0;
+      overflow: hidden;
+      color: var(--ink);
+      font-size: 15px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .run-log-modal-header .btn {
+      position: static;
+      flex: 0 0 auto;
+      border: 0;
+      background: transparent;
+      color: var(--ink-secondary);
+    }
+
+    .run-log-content {
+      min-height: 240px;
+      max-height: calc(78vh - 54px);
+      margin: 0;
+      overflow: auto;
+      padding: 14px 16px;
+      background: var(--surface-secondary);
+      color: var(--ink);
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
 
     @media (max-width: 980px) {
