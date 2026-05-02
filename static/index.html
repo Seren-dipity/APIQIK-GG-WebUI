@@ -833,14 +833,14 @@
 
     function updateKeyState() {
       localStorage.removeItem("apiqik_vip_key");
-      const apiKey = localStorage.getItem("apiqik_key");
+      const apiKeys = getApiKeys();
       const r2 = getR2Config();
-      const hasKey = !!apiKey;
+      const hasKey = apiKeys.length > 0;
       const hasR2 = !!r2;
 
       els.keyDot.className = `dot ${hasKey ? "ok" : "bad"}`;
       
-      let label = hasKey ? "已配置" : "未配置";
+      let label = hasKey ? `已配置 ${apiKeys.length} 个Key` : "未配置";
       if (hasKey && !hasR2) label += " (R2未配置)";
       
       els.keyLabel.textContent = label;
@@ -900,6 +900,22 @@
       const keys = ["cf_access_key", "cf_secret_key", "cf_account_id", "cf_bucket", "cf_public_url"];
       const config = Object.fromEntries(keys.map(key => [key, localStorage.getItem(key) || ""]));
       return keys.every(key => config[key]) ? config : null;
+    }
+
+    function getApiKeys() {
+      const keys = [];
+      const primary = localStorage.getItem("apiqik_key") || "";
+      let stored = [];
+      try {
+        stored = JSON.parse(localStorage.getItem("apiqik_keys") || "[]");
+      } catch (error) {
+        stored = [];
+      }
+      [primary, ...(Array.isArray(stored) ? stored : [])].forEach(key => {
+        const normalized = String(key || "").trim();
+        if (normalized && !keys.includes(normalized)) keys.push(normalized);
+      });
+      return keys;
     }
 
     function getUploadProvider() {
@@ -1338,6 +1354,9 @@
       } else if (params.ratio) {
         renderRatioGrid(params.ratio);
         onRatioChange(params.ratio);
+        if (params.size && sizeToRatio[params.size] === params.ratio) {
+          els.size.value = params.size;
+        }
       } else if (params.size) {
         // 尝试匹配已知比例
         const r = sizeToRatio[params.size];
@@ -1431,7 +1450,9 @@
     async function startGeneration() {
       const model = els.model.value;
       localStorage.removeItem("apiqik_vip_key");
-      const apiKey = localStorage.getItem("apiqik_key") || "";
+      const apiKeys = getApiKeys();
+      const apiKey = apiKeys[0] || "";
+      const apiKeyCount = apiKeys.length;
       const prompt = els.prompt.value.trim();
       const concurrency = Number(els.concurrency.value);
 
@@ -1450,6 +1471,7 @@
       }
 
       setRunState("busy", "提交中");
+      if (apiKeyCount > 1) logSystem(`已配置 ${apiKeyCount} 个 Key，将按顺序轮换补齐失败任务。`);
 
       let finalSize = els.size.value;
       let finalRatio = els.ratioGrid.dataset.value || "1:1";
@@ -1477,6 +1499,7 @@
 
       const payload = {
         api_key: apiKey,
+        api_keys: apiKeys,
         base_url: localStorage.getItem("apiqik_base_url") || "https://value.apiqik.online",
         session_id: SESSION_ID,
         prompt,
@@ -1557,7 +1580,8 @@
         setGroupStatus(group, "error");
       } else if (event.type === "done") {
         if (group) {
-          group.done = group.total || group.done || group.images.length;
+          group.done = Number.isFinite(event.done) ? event.done : group.images.length;
+          group.total = event.total || group.total;
         }
         setGroupStatus(group, "completed");
         activeTasks.delete(taskId);

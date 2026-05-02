@@ -48,7 +48,8 @@ _history_lock = threading.RLock()
 # ──────────────────────────────────────────────
 
 class GenerateRequest(BaseModel):
-    api_key: str
+    api_key: str = ""
+    api_keys: list[str] = Field(default_factory=list)
     prompt: str
     session_id: str
     model: str = api_core.DEFAULT_MODEL
@@ -140,7 +141,8 @@ async def upload_image(
 @app.post("/api/generate")
 async def generate(req: GenerateRequest):
     """创建并发生成任务，立即返回 task_id。"""
-    if not req.api_key:
+    api_keys = _normalize_api_keys(req)
+    if not api_keys:
         raise HTTPException(status_code=400, detail="api_key 不能为空")
     if not req.prompt:
         raise HTTPException(status_code=400, detail="prompt 不能为空")
@@ -150,6 +152,8 @@ async def generate(req: GenerateRequest):
         raise HTTPException(status_code=400, detail="session_id 格式不合法")
 
     _ensure_session_dir(req.session_id)
+    req.api_key = api_keys[0]
+    req.api_keys = api_keys
 
     task_id = str(uuid.uuid4())
     queue: asyncio.Queue = asyncio.Queue()
@@ -259,7 +263,7 @@ async def _run_batch(task_id: str, req: GenerateRequest):
     def _log(message: str):
         _push({"type": "log", "message": message, "time": _now()})
 
-    def _worker(idx: int) -> dict:
+    def _worker(idx: int, api_key: str, key_number: int) -> dict:
         """单次生成任务，在线程池中运行。"""
         start = time.time()
         clean = "".join(c if c.isalnum() else "_" for c in req.prompt[:30])
@@ -281,7 +285,7 @@ async def _run_batch(task_id: str, req: GenerateRequest):
 
         try:
             response = api_core.generate_image(
-                api_key=req.api_key,
+                api_key=api_key,
                 prompt=req.prompt,
                 model=req.model,
                 size=req.size,
@@ -317,44 +321,75 @@ async def _run_batch(task_id: str, req: GenerateRequest):
                 "content": content_text.strip(),
                 "duration": round(duration, 1),
             })
-            return {"success": True}
+            return {"success": True, "idx": idx, "key_number": key_number}
 
         except Exception as e:
             duration = time.time() - start
-            set_history_status(task_id, "error", session_id=req.session_id)
             _push({
                 "type": "error",
                 "run_id": task_id,
                 "idx": idx + 1,
-                "message": str(e),
+                "message": f"Key {key_number} 生成失败: {e}",
                 "duration": round(duration, 1),
             })
-            return {"success": False, "error": str(e)}
+            return {"success": False, "idx": idx, "key_number": key_number, "error": str(e)}
 
-    _log(f"开始批量生成，总任务数: {req.concurrency}，模型: {req.model}")
+    api_keys = _normalize_api_keys(req)
+    pending_indices = list(range(req.concurrency))
+    success_count = 0
+    _tasks[task_id]["done"] = 0
+    _log(f"开始批量生成，总任务数: {req.concurrency}，模型: {req.model}，可用 Key: {len(api_keys)} 个")
 
-    futures = []
-    for i in range(req.concurrency):
-        future = loop.run_in_executor(_executor, _worker, i)
-        futures.append(future)
-        # 错开启动间隔，避免瞬时请求风暴
-        await asyncio.sleep(0.3)
+    for key_index, api_key in enumerate(api_keys, start=1):
+        if not pending_indices:
+            break
 
-    for future in asyncio.as_completed(futures):
-        await future
-        _tasks[task_id]["done"] += 1
-        done = _tasks[task_id]["done"]
-        _push({
-            "type": "progress",
-            "run_id": task_id,
-            "done": done,
-            "total": req.concurrency,
-        })
+        round_indices = pending_indices
+        pending_indices = []
+        _log(f"第 {key_index} 个 Key 开始生成，剩余 {len(round_indices)} 张。")
+
+        futures = []
+        for idx in round_indices:
+            future = loop.run_in_executor(_executor, _worker, idx, api_key, key_index)
+            futures.append(future)
+            # 错开启动间隔，避免瞬时请求风暴
+            await asyncio.sleep(0.3)
+
+        for future in asyncio.as_completed(futures):
+            result = await future
+            if result.get("success"):
+                success_count += 1
+            else:
+                pending_indices.append(result["idx"])
+
+            _tasks[task_id]["done"] = success_count
+            _push({
+                "type": "progress",
+                "run_id": task_id,
+                "done": success_count,
+                "total": req.concurrency,
+            })
+
+        pending_indices.sort()
+        if pending_indices:
+            _log(f"第 {key_index} 个 Key 完成，成功 {success_count} 张，仍剩 {len(pending_indices)} 张。")
+
+    if pending_indices:
+        _log(f"所有 Key 都已尝试，仍有 {len(pending_indices)} 张未生成成功。")
 
     _tasks[task_id]["status"] = "completed"
-    set_history_status(task_id, "completed", done=_tasks[task_id]["done"], session_id=req.session_id)
-    _log(f"所有任务已完成，共 {req.concurrency} 个。")
-    queue.put_nowait({"type": "done", "run_id": task_id})
+    set_history_status(task_id, "completed", done=success_count, session_id=req.session_id)
+    _log(f"批量生成结束，成功 {success_count}/{req.concurrency} 张。")
+    queue.put_nowait({"type": "done", "run_id": task_id, "done": success_count, "total": req.concurrency})
+
+
+def _normalize_api_keys(req: GenerateRequest) -> list[str]:
+    keys: list[str] = []
+    for key in [req.api_key, *req.api_keys]:
+        normalized = str(key or "").strip()
+        if normalized and normalized not in keys:
+            keys.append(normalized)
+    return keys
 
 
 def _now() -> str:
@@ -429,7 +464,7 @@ def save_history(data: dict[str, Any], session_id: str) -> None:
 
 def create_history_run(run_id: str, req: GenerateRequest) -> dict[str, Any]:
     now = datetime.now().isoformat(timespec="seconds")
-    params = req.model_dump(exclude={"api_key"})
+    params = req.model_dump(exclude={"api_key", "api_keys"})
     run = {
         "run_id": run_id,
         "created_at": now,

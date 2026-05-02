@@ -194,8 +194,96 @@
       margin-top: 2px;
     }
 
+    .field-label-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .field--api-keys {
+      align-items: start;
+    }
+
+    .api-key-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 28px;
+      align-items: start;
+      gap: 8px;
+    }
+
+    .api-key-head .field-hint {
+      grid-column: 1 / -1;
+      line-height: 1.55;
+    }
+
+    .key-add-btn {
+      width: 24px;
+      height: 24px;
+      display: inline-grid;
+      place-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      transition: background .2s, border-color .2s;
+    }
+
+    .key-add-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--accent);
+    }
+
     .field-input-wrap {
       position: relative;
+    }
+
+    .api-key-stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .api-key-primary-row {
+      position: relative;
+    }
+
+    .api-key-row {
+      position: relative;
+    }
+
+    .api-key-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .api-key-row input {
+      padding-right: 82px;
+    }
+
+    .remove-api-key {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 26px;
+      height: 26px;
+      display: grid;
+      place-items: center;
+      border: none;
+      border-radius: 8px;
+      background: rgba(248, 113, 113, 0.12);
+      color: var(--error);
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      transition: background .2s;
+    }
+
+    .remove-api-key:hover {
+      background: rgba(248, 113, 113, 0.2);
     }
 
     .field input {
@@ -218,6 +306,10 @@
 
     .field input::placeholder {
       color: rgba(148, 163, 184, 0.5);
+    }
+
+    .field .api-key-row input {
+      padding-right: 92px;
     }
 
     /* 密钥显示/隐藏按钮 */
@@ -243,6 +335,15 @@
     .toggle-vis svg {
       width: 18px;
       height: 18px;
+    }
+
+    .api-key-primary-row .toggle-vis,
+    .api-key-row .toggle-vis {
+      right: 50px;
+    }
+
+    .api-key-primary-row .toggle-vis {
+      right: 12px;
     }
 
     /* ── 操作按钮区 ── */
@@ -474,11 +575,15 @@
         width: auto;
       }
 
-      .field {
+    .field {
         grid-template-columns: 1fr;
         align-items: stretch;
         gap: 8px;
         padding: 14px 0;
+      }
+
+      .field-label-line {
+        justify-content: space-between;
       }
 
       .field-label {
@@ -499,6 +604,10 @@
         height: 36px;
         justify-content: center;
         right: 8px;
+      }
+
+      .api-key-row .toggle-vis {
+        right: 44px;
       }
 
       .divider {
@@ -579,19 +688,25 @@
       APIQIK 配置
     </div>
 
-    <div class="field">
-      <div>
-        <div class="field-label">API Key <span class="required">*</span></div>
-        <div class="field-hint">推荐使用Auto分组令牌，全部模型共用这一枚 Key</div>
+    <div class="field field--api-keys">
+      <div class="api-key-head">
+        <div>
+          <div class="field-label">API Key <span class="required">*</span></div>
+        </div>
+        <button id="addApiKeyBtn" class="key-add-btn" type="button" title="添加备用 API Key">+</button>
+        <div class="field-hint">推荐使用Auto分组令牌，备用 Key 会在生成失败后按顺序轮换补齐</div>
       </div>
-      <div class="field-input-wrap">
-        <input id="apiqik_key" type="password" placeholder="sk-..." autocomplete="off" />
-        <button class="toggle-vis" data-target="apiqik_key" title="显示/隐藏">
-          <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-            <circle cx="12" cy="12" r="3" />
-          </svg>
-        </button>
+      <div class="field-input-wrap api-key-stack">
+        <div class="api-key-primary-row">
+          <input id="apiqik_key" type="password" placeholder="sk-..." autocomplete="off" />
+          <button class="toggle-vis" data-target="apiqik_key" title="显示/隐藏">
+            <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          </button>
+        </div>
+        <div id="apiqikKeyList" class="api-key-list"></div>
       </div>
     </div>
 
@@ -700,22 +815,99 @@
   <div class="toast" id="toast"></div>
 
   <script>
-    const KEYS = ['apiqik_key', 'apiqik_base_url', 'cf_access_key', 'cf_secret_key', 'cf_account_id', 'cf_bucket', 'cf_public_url'];
+    const KEYS = ['apiqik_key', 'apiqik_keys', 'apiqik_base_url', 'cf_access_key', 'cf_secret_key', 'cf_account_id', 'cf_bucket', 'cf_public_url'];
+    const CONFIG_KEYS = ['apiqik_base_url', 'cf_access_key', 'cf_secret_key', 'cf_account_id', 'cf_bucket', 'cf_public_url'];
     const LEGACY_KEYS = ['apiqik_vip_key'];
+    const API_KEYS_STORAGE = 'apiqik_keys';
+
+    function parseStoredApiKeys() {
+      const keys = [];
+      const primary = localStorage.getItem('apiqik_key') || '';
+      let stored = [];
+      try {
+        stored = JSON.parse(localStorage.getItem(API_KEYS_STORAGE) || '[]');
+      } catch (error) {
+        stored = [];
+      }
+      [primary, ...(Array.isArray(stored) ? stored : [])].forEach(key => {
+        const normalized = String(key || '').trim();
+        if (normalized && !keys.includes(normalized)) keys.push(normalized);
+      });
+      return keys;
+    }
+
+    function collectApiKeysFromForm() {
+      const keys = [];
+      const inputs = [document.getElementById('apiqik_key'), ...document.querySelectorAll('.backup-api-key-input')];
+      inputs.forEach(input => {
+        const normalized = (input?.value || '').trim();
+        if (normalized && !keys.includes(normalized)) keys.push(normalized);
+      });
+      return keys;
+    }
+
+    function saveApiKeys(keys) {
+      if (keys.length) {
+        localStorage.setItem('apiqik_key', keys[0]);
+        localStorage.setItem(API_KEYS_STORAGE, JSON.stringify(keys));
+      } else {
+        localStorage.removeItem('apiqik_key');
+        localStorage.removeItem(API_KEYS_STORAGE);
+      }
+    }
+
+    function bindToggleButton(btn) {
+      btn.addEventListener('click', () => {
+        const targetId = btn.dataset.target;
+        const input = document.getElementById(targetId);
+        if (!input) return;
+        input.type = input.type === 'password' ? 'text' : 'password';
+      });
+    }
+
+    function addApiKeyField(value = '') {
+      const list = document.getElementById('apiqikKeyList');
+      const id = `apiqik_key_backup_${Date.now()}_${list.children.length}`;
+      const row = document.createElement('div');
+      row.className = 'api-key-row';
+      row.innerHTML = `
+        <input id="${id}" class="backup-api-key-input" type="password" placeholder="备用 API Key" autocomplete="off" />
+        <button class="toggle-vis" data-target="${id}" type="button" title="显示/隐藏">
+          <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        </button>
+        <button class="remove-api-key" type="button" title="删除备用 API Key">&times;</button>
+      `;
+      list.appendChild(row);
+      row.querySelector('input').value = value;
+      bindToggleButton(row.querySelector('.toggle-vis'));
+      row.querySelector('.remove-api-key').addEventListener('click', () => row.remove());
+    }
+
+    function renderApiKeyFields(keys) {
+      const list = document.getElementById('apiqikKeyList');
+      list.innerHTML = '';
+      keys.slice(1).forEach(key => addApiKeyField(key));
+    }
 
     // 页面加载时从 localStorage 回填
     function loadFromStorage() {
       LEGACY_KEYS.forEach(k => localStorage.removeItem(k));
-      KEYS.forEach(k => {
+      CONFIG_KEYS.forEach(k => {
         const val = localStorage.getItem(k) || '';
         const el = document.getElementById(k);
         if (el) el.value = val;
       });
+      const apiKeys = parseStoredApiKeys();
+      document.getElementById('apiqik_key').value = apiKeys[0] || '';
+      renderApiKeyFields(apiKeys);
       updateStatusBar();
     }
 
     function updateStatusBar() {
-      const hasApiKey = !!localStorage.getItem('apiqik_key');
+      const hasApiKey = parseStoredApiKeys().length > 0;
       const r2Keys = ['cf_access_key', 'cf_secret_key', 'cf_account_id', 'cf_bucket', 'cf_public_url'];
       const hasR2 = r2Keys.every(k => !!localStorage.getItem(k));
 
@@ -727,7 +919,9 @@
       let hasError = false;
 
       LEGACY_KEYS.forEach(k => localStorage.removeItem(k));
-      KEYS.forEach(k => {
+      const apiKeys = collectApiKeysFromForm();
+      saveApiKeys(apiKeys);
+      CONFIG_KEYS.forEach(k => {
         const el = document.getElementById(k);
         if (el) {
           const val = el.value.trim();
@@ -739,7 +933,7 @@
         }
       });
 
-      if (!localStorage.getItem('apiqik_key')) {
+      if (!apiKeys.length) {
         showToast('APIQIK Key 未填写，生成功能将无法使用', true);
         hasError = true;
       }
@@ -752,23 +946,19 @@
       if (!confirm('确认清除所有已保存的配置？')) return;
       LEGACY_KEYS.forEach(k => localStorage.removeItem(k));
       KEYS.forEach(k => localStorage.removeItem(k));
-      KEYS.forEach(k => {
+      CONFIG_KEYS.forEach(k => {
         const el = document.getElementById(k);
         if (el) el.value = '';
       });
+      document.getElementById('apiqik_key').value = '';
+      renderApiKeyFields([]);
       updateStatusBar();
       showToast('配置已清除');
     }
 
     // 显示/隐藏密钥
-    document.querySelectorAll('.toggle-vis').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const targetId = btn.dataset.target;
-        const input = document.getElementById(targetId);
-        if (!input) return;
-        input.type = input.type === 'password' ? 'text' : 'password';
-      });
-    });
+    document.querySelectorAll('.toggle-vis').forEach(bindToggleButton);
+    document.getElementById('addApiKeyBtn').addEventListener('click', () => addApiKeyField());
 
     function showToast(msg, isError = false) {
       const el = document.getElementById('toast');
