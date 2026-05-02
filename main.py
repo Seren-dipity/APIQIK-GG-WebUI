@@ -15,13 +15,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 import core as api_core
 import os
+import re
 
 app = FastAPI(title="APIQIK Image Generator")
 
@@ -29,6 +30,10 @@ OUTPUT_DIR = Path("./output").absolute()
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 STATIC_DIR = Path("./static").absolute()
+
+# 每个 Space 实例最多保留的 session 数量，超出时清理最旧的
+_MAX_SESSIONS = 200
+_SESSION_ID_RE = re.compile(r'^[0-9a-f-]{36}$')
 
 # 任务状态存储：task_id -> {"status": ..., "queue": asyncio.Queue, "total": int, "done": int}
 _tasks: dict[str, dict[str, Any]] = {}
@@ -45,11 +50,11 @@ _history_lock = threading.RLock()
 class GenerateRequest(BaseModel):
     api_key: str
     prompt: str
+    session_id: str
     model: str = api_core.DEFAULT_MODEL
     base_url: str = api_core.DEFAULT_BASE_URL
     size: str | None = None
     ratio: str = "1:1"
-    quality: str | None = None
     quality: str | None = None
     output_format: str | None = None
     concurrency: int = 10
@@ -141,6 +146,10 @@ async def generate(req: GenerateRequest):
         raise HTTPException(status_code=400, detail="prompt 不能为空")
     if req.concurrency < 1 or req.concurrency > 50:
         raise HTTPException(status_code=400, detail="concurrency 范围 1~50")
+    if not _SESSION_ID_RE.match(req.session_id):
+        raise HTTPException(status_code=400, detail="session_id 格式不合法")
+
+    _ensure_session_dir(req.session_id)
 
     task_id = str(uuid.uuid4())
     queue: asyncio.Queue = asyncio.Queue()
@@ -150,6 +159,7 @@ async def generate(req: GenerateRequest):
         "total": req.concurrency,
         "done": 0,
         "run_id": task_id,
+        "session_id": req.session_id,
     }
     run = create_history_run(task_id, req)
 
@@ -209,13 +219,17 @@ async def task_status(task_id: str):
 
 
 @app.get("/api/history")
-async def history():
-    return load_history()
+async def history(session_id: str = Query(...)):
+    if not _SESSION_ID_RE.match(session_id):
+        raise HTTPException(status_code=400, detail="session_id 格式不合法")
+    return load_history(session_id)
 
 
 @app.delete("/api/history/{run_id}")
-async def delete_history(run_id: str):
-    deleted = delete_history_run(run_id)
+async def delete_history(run_id: str, session_id: str = Query(...)):
+    if not _SESSION_ID_RE.match(session_id):
+        raise HTTPException(status_code=400, detail="session_id 格式不合法")
+    deleted = delete_history_run(run_id, session_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="历史记录不存在")
     return {"deleted": True, "run_id": run_id}
@@ -236,6 +250,7 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 async def _run_batch(task_id: str, req: GenerateRequest):
     queue = _tasks[task_id]["queue"]
     loop = asyncio.get_running_loop()
+    session_output_dir = _session_dir(req.session_id)
 
     def _push(event: dict):
         """线程安全地将事件推入队列（从同步线程调用）。"""
@@ -255,8 +270,8 @@ async def _run_batch(task_id: str, req: GenerateRequest):
         ext = req.output_format.lower() if req.output_format else "png"
         if ext not in ["png", "jpeg", "webp", "jpg"]:
             ext = "png"
-        
-        output_path = OUTPUT_DIR / f"{base_name}.{ext}"
+
+        output_path = session_output_dir / f"{base_name}.{ext}"
 
         # 防止极低概率的文件名冲突
         counter = 1
@@ -290,14 +305,14 @@ async def _run_batch(task_id: str, req: GenerateRequest):
             duration = time.time() - start
 
             # 推送成功事件
-            image_infos = [_result_image_info(p) for p in saved]
-            append_history_images(task_id, image_infos)
+            image_infos = [_result_image_info(p, req.session_id) for p in saved]
+            append_history_images(task_id, image_infos, req.session_id)
             _push({
                 "type": "result",
                 "run_id": task_id,
                 "idx": idx + 1,
                 "files": [p.name for p in saved],
-                "urls": [f"/output/{p.name}" for p in saved],
+                "urls": [f"/output/{req.session_id}/{p.name}" for p in saved],
                 "images": image_infos,
                 "content": content_text.strip(),
                 "duration": round(duration, 1),
@@ -306,7 +321,7 @@ async def _run_batch(task_id: str, req: GenerateRequest):
 
         except Exception as e:
             duration = time.time() - start
-            set_history_status(task_id, "error")
+            set_history_status(task_id, "error", session_id=req.session_id)
             _push({
                 "type": "error",
                 "run_id": task_id,
@@ -337,7 +352,7 @@ async def _run_batch(task_id: str, req: GenerateRequest):
         })
 
     _tasks[task_id]["status"] = "completed"
-    set_history_status(task_id, "completed", done=_tasks[task_id]["done"])
+    set_history_status(task_id, "completed", done=_tasks[task_id]["done"], session_id=req.session_id)
     _log(f"所有任务已完成，共 {req.concurrency} 个。")
     queue.put_nowait({"type": "done", "run_id": task_id})
 
@@ -346,13 +361,53 @@ def _now() -> str:
     return datetime.now().strftime("%H:%M:%S")
 
 
-def history_file() -> Path:
-    return OUTPUT_DIR / "history.json"
+def _session_dir(session_id: str) -> Path:
+    return OUTPUT_DIR / session_id
 
 
-def load_history() -> dict[str, Any]:
+def _ensure_session_dir(session_id: str) -> Path:
+    """创建 session 目录，同时触发 LRU 清理。"""
+    path = _session_dir(session_id)
+    path.mkdir(parents=True, exist_ok=True)
+    # 更新最后访问时间戳文件，用于 LRU 排序
+    (path / ".last_access").write_text(str(time.time()), encoding="utf-8")
+    _evict_old_sessions()
+    return path
+
+
+def _evict_old_sessions() -> None:
+    """当 session 数量超过上限时，删除最旧的 session 目录。"""
+    try:
+        dirs = [
+            d for d in OUTPUT_DIR.iterdir()
+            if d.is_dir() and _SESSION_ID_RE.match(d.name)
+        ]
+        if len(dirs) <= _MAX_SESSIONS:
+            return
+
+        def _last_access(d: Path) -> float:
+            ts_file = d / ".last_access"
+            try:
+                return float(ts_file.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                return d.stat().st_mtime
+
+        dirs.sort(key=_last_access)
+        to_remove = dirs[:len(dirs) - _MAX_SESSIONS]
+        for old_dir in to_remove:
+            import shutil
+            shutil.rmtree(old_dir, ignore_errors=True)
+    except OSError:
+        pass
+
+
+def history_file(session_id: str) -> Path:
+    return _session_dir(session_id) / "history.json"
+
+
+def load_history(session_id: str) -> dict[str, Any]:
     with _history_lock:
-        path = history_file()
+        path = history_file(session_id)
         if not path.exists():
             return {"runs": []}
         try:
@@ -363,10 +418,10 @@ def load_history() -> dict[str, Any]:
         return {"runs": runs if isinstance(runs, list) else []}
 
 
-def save_history(data: dict[str, Any]) -> None:
+def save_history(data: dict[str, Any], session_id: str) -> None:
     with _history_lock:
-        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        path = history_file()
+        path = history_file(session_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
         tmp_path = path.with_suffix(".json.tmp")
         tmp_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         tmp_path.replace(path)
@@ -388,32 +443,32 @@ def create_history_run(run_id: str, req: GenerateRequest) -> dict[str, Any]:
         "images": [],
     }
     with _history_lock:
-        data = load_history()
+        data = load_history(req.session_id)
         data["runs"] = [item for item in data["runs"] if item.get("run_id") != run_id]
         data["runs"].insert(0, run)
-        save_history(data)
+        save_history(data, req.session_id)
     return run
 
 
-def append_history_images(run_id: str, images: list[dict[str, Any]]) -> bool:
+def append_history_images(run_id: str, images: list[dict[str, Any]], session_id: str) -> bool:
     if not images:
         return False
     with _history_lock:
-        data = load_history()
+        data = load_history(session_id)
         for run in data["runs"]:
             if run.get("run_id") != run_id:
                 continue
             run.setdefault("images", []).extend(images)
             run["done"] = len(run["images"])
             run["updated_at"] = datetime.now().isoformat(timespec="seconds")
-            save_history(data)
+            save_history(data, session_id)
             return True
     return False
 
 
-def set_history_status(run_id: str, status: str, done: int | None = None) -> bool:
+def set_history_status(run_id: str, status: str, done: int | None = None, session_id: str = "") -> bool:
     with _history_lock:
-        data = load_history()
+        data = load_history(session_id)
         for run in data["runs"]:
             if run.get("run_id") != run_id:
                 continue
@@ -421,46 +476,47 @@ def set_history_status(run_id: str, status: str, done: int | None = None) -> boo
             if done is not None:
                 run["done"] = done
             run["updated_at"] = datetime.now().isoformat(timespec="seconds")
-            save_history(data)
+            save_history(data, session_id)
             return True
     return False
 
 
-def delete_history_run(run_id: str) -> bool:
+def delete_history_run(run_id: str, session_id: str) -> bool:
     with _history_lock:
-        data = load_history()
+        data = load_history(session_id)
         run = next((item for item in data["runs"] if item.get("run_id") == run_id), None)
         if not run:
             return False
         data["runs"] = [item for item in data["runs"] if item.get("run_id") != run_id]
+        session_out = _session_dir(session_id)
         for image in run.get("images", []):
             if isinstance(image, dict):
-                _delete_output_file(image.get("file"))
-        save_history(data)
+                _delete_output_file(image.get("file"), session_out)
+        save_history(data, session_id)
         return True
 
 
-def _delete_output_file(file_name: str | None) -> None:
+def _delete_output_file(file_name: str | None, session_out: Path) -> None:
     if not file_name:
         return
     try:
         output_root = OUTPUT_DIR.resolve()
-        target = (OUTPUT_DIR / Path(file_name).name).resolve()
+        target = (session_out / Path(file_name).name).resolve()
         target.relative_to(output_root)
     except (OSError, ValueError):
         return
-    if target.is_file() and target.name != history_file().name:
+    if target.is_file():
         target.unlink(missing_ok=True)
 
 
-def _result_image_info(path: Path) -> dict[str, Any]:
+def _result_image_info(path: Path, session_id: str) -> dict[str, Any]:
     info: dict[str, Any] = {
         "file": path.name,
-        "url": f"/output/{path.name}",
+        "url": f"/output/{session_id}/{path.name}",
     }
     candidates = [path]
     if not path.is_absolute():
-        candidates.append(OUTPUT_DIR / path)
+        candidates.append(_session_dir(session_id) / path)
 
     for candidate in candidates:
         if not candidate.exists():

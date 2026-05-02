@@ -199,18 +199,20 @@
                     <span>私有存储</span>
                   </label>
                 </div>
-                <button id="storageHelp" class="help-icon-btn" type="button" aria-label="查看存储说明"
-                  aria-expanded="false" aria-controls="storagePopover">?</button>
-                <div id="storagePopover" class="pricing-popover" role="tooltip" hidden>
-                  <div class="pricing-section">
-                    <div class="pricing-title">存储方式说明</div>
-                    <div class="pricing-row" style="display: block; margin-bottom: 10px;">
-                      <strong style="display: block; margin-bottom: 4px; color: var(--ink);">公共存储</strong>
-                      <span style="color: var(--ink-secondary); font-size: 11px;">使用服务端配置的默认存储。仅在 HuggingFace 部署环境中作为默认推荐。</span>
-                    </div>
-                    <div class="pricing-row" style="display: block;">
-                      <strong style="display: block; margin-bottom: 4px; color: var(--ink);">私有存储</strong>
-                      <span style="color: var(--ink-secondary); font-size: 11px;">使用你在设置页配置的 Cloudflare R2，适合长期保留参考图，数据自主掌控。</span>
+                <div style="position: relative;">
+                  <button id="storageHelp" class="help-icon-btn" type="button" aria-label="查看存储说明"
+                    aria-expanded="false" aria-controls="storagePopover">?</button>
+                  <div id="storagePopover" class="pricing-popover" role="tooltip" hidden>
+                    <div class="pricing-section">
+                      <div class="pricing-title">存储方式说明</div>
+                      <div class="pricing-row" style="display: block; margin-bottom: 10px;">
+                        <strong style="display: block; margin-bottom: 4px; color: var(--ink);">公共存储</strong>
+                        <span style="color: var(--ink-secondary); font-size: 11px;">使用服务端配置的默认存储。仅在 HuggingFace 部署环境中作为默认推荐。</span>
+                      </div>
+                      <div class="pricing-row" style="display: block;">
+                        <strong style="display: block; margin-bottom: 4px; color: var(--ink);">私有存储</strong>
+                        <span style="color: var(--ink-secondary); font-size: 11px;">使用你在设置页配置的 Cloudflare R2，适合长期保留参考图，数据自主掌控。</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -363,6 +365,20 @@
   </div>
 
   <script>
+    // 每个浏览器生成唯一 session_id，存入 localStorage，确保数据与其他用户隔离
+    const SESSION_ID = (() => {
+      const key = 'apiqik_session_id';
+      let id = localStorage.getItem(key);
+      if (!id || !/^[0-9a-f-]{36}$/.test(id)) {
+        id = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+          const r = Math.random() * 16 | 0;
+          return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+        });
+        localStorage.setItem(key, id);
+      }
+      return id;
+    })();
+
     const sizeToRatio = {
       // 1:1
       "1024x1024": "1:1",
@@ -1247,7 +1263,7 @@
 
     async function loadHistory() {
       try {
-        const response = await fetch("/api/history");
+        const response = await fetch(`/api/history?session_id=${encodeURIComponent(SESSION_ID)}`);
         const data = await response.json();
         if (!response.ok) throw new Error(data.detail || "历史加载失败");
         runs = (data.runs || []).map(run => normalizeRun(run));
@@ -1288,7 +1304,7 @@
       }
       if (!options.skipConfirm && !confirm(`删除该组 ${run.images.length} 张图片文件？`)) return;
       try {
-        const response = await fetch(`/api/history/${encodeURIComponent(runId)}`, { method: "DELETE" });
+        const response = await fetch(`/api/history/${encodeURIComponent(runId)}?session_id=${encodeURIComponent(SESSION_ID)}`, { method: "DELETE" });
         const data = await response.json();
         if (!response.ok) throw new Error(data.detail || "删除失败");
         runs = runs.filter(item => item.run_id !== runId);
@@ -1462,6 +1478,7 @@
       const payload = {
         api_key: apiKey,
         base_url: localStorage.getItem("apiqik_base_url") || "https://value.apiqik.online",
+        session_id: SESSION_ID,
         prompt,
         model,
         size: finalSize,
