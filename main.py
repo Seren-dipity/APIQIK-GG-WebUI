@@ -73,7 +73,22 @@ class ImageHostDeleteRequest(BaseModel):
 @app.get("/", response_class=HTMLResponse)
 async def index():
     html_path = STATIC_DIR / "index.html"
-    return HTMLResponse(content=html_path.read_text(encoding="utf-8"))
+    content = html_path.read_text(encoding="utf-8")
+    
+    # 检测服务端 R2 配置状态
+    has_public_r2 = all([
+        os.getenv("CF_ACCESS_KEY"),
+        os.getenv("CF_SECRET_KEY"),
+        os.getenv("CF_ACCOUNT_ID"),
+        os.getenv("CF_BUCKET"),
+        os.getenv("CF_PUBLIC_URL")
+    ])
+    
+    # 注入全局变量供前端使用
+    config_js = f"<script>window.SERVER_CONFIG = {{ 'has_public_r2': {'true' if has_public_r2 else 'false'} }};</script>"
+    content = content.replace("<head>", f"<head>{config_js}")
+    
+    return HTMLResponse(content=content)
 
 
 @app.get("/settings", response_class=HTMLResponse)
@@ -89,6 +104,7 @@ async def settings():
 @app.post("/api/upload-image")
 async def upload_image(
     file: UploadFile = File(...),
+    session_id: str | None = Form(None),
     cf_access_key: str | None = Form(None),
     cf_secret_key: str | None = Form(None),
     cf_account_id: str | None = Form(None),
@@ -129,7 +145,150 @@ async def upload_image(
     finally:
         tmp_path.unlink(missing_ok=True)
 
+    # 记录上传索引 (仅针对成功且有 session_id 的情况)
+    if session_id and _SESSION_ID_RE.match(session_id):
+        # 提取 Key：由于 R2 Key 包含前缀，我们需要从 URL 倒推
+        # 简化处理：我们知道 Key 是拼接在 public_url 后面的
+        prefix = public_url.rstrip('/')
+        key = public_url_result[len(prefix)+1:] if public_url_result.startswith(prefix) else ""
+        
+        uploads = _load_uploads(session_id)
+        uploads.append({
+            "url": public_url_result,
+            "key": key,
+            "name": file.filename,
+            "created_at": datetime.now().isoformat(),
+            "is_public": not cf_access_key # 如果前端没传 key，说明用的是公共配置
+        })
+        _save_uploads(session_id, uploads)
+
     return {"url": public_url_result}
+
+
+@app.get("/api/uploads")
+async def list_uploads(session_id: str = Query(...), is_public: bool | None = Query(None)):
+    """获取当前 session 记录在案的已上传参考图。支持 is_public 过滤。"""
+    if not _SESSION_ID_RE.match(session_id):
+        raise HTTPException(status_code=400, detail="Invalid session_id")
+    
+    uploads = _load_uploads(session_id)
+    if is_public is not None:
+        uploads = [u for u in uploads if u.get("is_public") == is_public]
+        
+    return {"uploads": uploads}
+
+
+@app.post("/api/delete-upload")
+async def delete_upload(
+    url: str = Form(...),
+    session_id: str = Form(...),
+    cf_access_key: str | None = Form(None),
+    cf_secret_key: str | None = Form(None),
+    cf_account_id: str | None = Form(None),
+    cf_bucket: str | None = Form(None),
+):
+    """从索引中移除记录，并尝试从 R2 中物理删除文件。支持公共和私有 R2。"""
+    if not _SESSION_ID_RE.match(session_id):
+        raise HTTPException(status_code=400, detail="Invalid session_id")
+
+    uploads = _load_uploads(session_id)
+    target = next((u for u in uploads if u["url"] == url), None)
+    if not target:
+        raise HTTPException(status_code=404, detail="Upload record not found")
+
+    # 物理删除逻辑
+    success = False
+    if target.get("is_public"):
+        # 公共模式：使用服务端环境变量
+        access_key = os.getenv("CF_ACCESS_KEY")
+        secret_key = os.getenv("CF_SECRET_KEY")
+        account_id = os.getenv("CF_ACCOUNT_ID")
+        bucket = os.getenv("CF_BUCKET")
+    else:
+        # 私有模式：使用前端传来的凭证
+        access_key = cf_access_key
+        secret_key = cf_secret_key
+        account_id = cf_account_id
+        bucket = cf_bucket
+        
+    if all([access_key, secret_key, account_id, bucket]) and target.get("key"):
+        success = await asyncio.to_thread(
+            api_core.delete_image_from_r2,
+            target["key"],
+            access_key=access_key,
+            secret_key=secret_key,
+            account_id=account_id,
+            bucket_name=bucket
+        )
+
+    # 从索引中移除
+    new_uploads = [u for u in uploads if u["url"] != url]
+    _save_uploads(session_id, new_uploads)
+
+    return {"success": True, "physical_delete": success}
+
+
+@app.post("/api/delete-all-uploads")
+async def delete_all_uploads(
+    session_id: str = Form(...),
+    is_public: bool | None = Form(None),
+    cf_access_key: str | None = Form(None),
+    cf_secret_key: str | None = Form(None),
+    cf_account_id: str | None = Form(None),
+    cf_bucket: str | None = Form(None),
+):
+    """清空当前 Session 的所有上传记录，并尝试物理删除。"""
+    if not _SESSION_ID_RE.match(session_id):
+        raise HTTPException(status_code=400, detail="Invalid session_id")
+
+    uploads = _load_uploads(session_id)
+    
+    # 循环删除 R2 上的物理文件
+    to_delete = []
+    remaining = []
+    
+    for u in uploads:
+        if is_public is None or u.get("is_public") == is_public:
+            to_delete.append(u)
+        else:
+            remaining.append(u)
+
+    for target in to_delete:
+        # 确定使用的凭证
+        access_key = os.getenv("CF_ACCESS_KEY") if target.get("is_public") else cf_access_key
+        secret_key = os.getenv("CF_SECRET_KEY") if target.get("is_public") else cf_secret_key
+        account_id = os.getenv("CF_ACCOUNT_ID") if target.get("is_public") else cf_account_id
+        bucket = os.getenv("CF_BUCKET") if target.get("is_public") else cf_bucket
+        
+        if all([access_key, secret_key, account_id, bucket]) and target.get("key"):
+            asyncio.create_task(asyncio.to_thread(
+                api_core.delete_image_from_r2,
+                target["key"],
+                access_key=access_key,
+                secret_key=secret_key,
+                account_id=account_id,
+                bucket_name=bucket
+            ))
+
+    # 更新本地索引
+    _save_uploads(session_id, remaining)
+    return {"success": True, "count": len(to_delete)}
+
+
+def _load_uploads(session_id: str) -> list[dict]:
+    path = _ensure_session_dir(session_id) / "uploads.json"
+    if not path.exists():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, list) else []
+    except:
+        return []
+
+
+def _save_uploads(session_id: str, data: list[dict]):
+    path = _ensure_session_dir(session_id) / "uploads.json"
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 

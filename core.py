@@ -267,6 +267,35 @@ def upload_image_to_r2(
         raise RuntimeError(f"Cloudflare R2 upload failed: {e}")
 
     return f"{public_url_prefix.rstrip('/')}/{file_key}"
+ 
+ 
+def delete_image_from_r2(
+    file_key: str,
+    *,
+    access_key: str,
+    secret_key: str,
+    account_id: str,
+    bucket_name: str,
+    timeout: int = 60,
+) -> bool:
+    """从 Cloudflare R2 中删除指定对象。"""
+    if boto3 is None:
+        return False
+    
+    s3_client = boto3.client(
+        "s3",
+        endpoint_url=f"https://{account_id}.r2.cloudflarestorage.com",
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+        config=Config(signature_version="s3v4", connect_timeout=timeout, read_timeout=timeout),
+        region_name="auto",
+    )
+    
+    try:
+        s3_client.delete_object(Bucket=bucket_name, Key=file_key)
+        return True
+    except Exception:
+        return False
 
 
 def resolve_image_inputs(

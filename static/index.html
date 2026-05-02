@@ -922,12 +922,7 @@
       return els.uploadProviderR2?.checked ? "r2" : "public";
     }
 
-    function updateUploadProviderHint() {
-      if (!els.uploadProviderHint) return;
-      els.uploadProviderHint.textContent = getUploadProvider() === "r2"
-        ? "使用设置页 Cloudflare R2 配置，适合长期保留参考图。"
-        : "使用服务器提供的公共存储，图片将上传至管理员配置的 R2 存储桶。";
-    }
+    function updateUploadProviderHint() { if (!els.uploadProviderHint) return; const isR2 = getUploadProvider() === "r2"; const text = isR2 ? "图片将上传至你在设置中配置的私有 R2 存储。" : "图片将独立存储在管理员配置的公共 R2 存储中。"; els.uploadProviderHint.innerHTML = `${text} <span class="btn-manage-link" onclick="openUploadGalleryModal()">[管理上传图片]</span>`; }
 
 
     function getProxiedUrl(item) {
@@ -1059,7 +1054,7 @@
         }
 
         const form = new FormData();
-        form.append("file", file);
+        form.append("file", file); form.append("session_id", SESSION_ID);
         if (r2) { Object.entries(r2).forEach(([key, value]) => form.append(key, value)); }
 
         try {
@@ -1906,7 +1901,7 @@
 
     init();
   </script>
-  <script src="/static/js/theme.js"></script>
+  <script src="/static/js/theme.js"></script><script src="/static/js/upload-manager.js?v=2.9"></script>
 </body>
 
 </html>
