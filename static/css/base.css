@@ -1178,6 +1178,17 @@
       gap: 12px;
     }
 
+    .hf-storage-notice {
+      color: var(--ink-secondary);
+    }
+
+    .hf-storage-notice .btn {
+      flex: 0 0 auto;
+      border-color: var(--border-strong);
+      color: var(--ink);
+      background: transparent;
+    }
+
     .lightbox {
       position: fixed;
       inset: 0;

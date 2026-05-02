@@ -217,6 +217,27 @@
       line-height: 1.55;
     }
 
+    .key-trust-notice {
+      display: none;
+      grid-column: 1 / -1;
+      margin-top: 2px;
+      padding: 10px 12px;
+      border: 1px solid rgba(251, 191, 36, 0.28);
+      border-radius: 10px;
+      background: rgba(251, 191, 36, 0.08);
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .key-trust-notice.show {
+      display: block;
+    }
+
+    .key-trust-notice strong {
+      color: var(--text);
+    }
+
     .key-add-btn {
       width: 24px;
       height: 24px;
@@ -575,7 +596,7 @@
         width: auto;
       }
 
-    .field {
+      .field {
         grid-template-columns: 1fr;
         align-items: stretch;
         gap: 8px;
@@ -675,7 +696,7 @@
   <div id="status-bar">
     <span class="status-item"><span id="dot-api" class="status-dot none"></span>APIQIK Key</span>
     <span class="status-item"><span id="dot-r2" class="status-dot none"></span>Cloudflare R2</span>
-    <span style="margin-left:auto;font-size:12px;">配置储存在浏览器本地，不会上传至服务器</span>
+
   </div>
 
   <!-- APIQIK 配置 -->
@@ -695,6 +716,10 @@
         </div>
         <button id="addApiKeyBtn" class="key-add-btn" type="button" title="添加备用 API Key">+</button>
         <div class="field-hint">推荐使用Auto分组令牌，备用 Key 会在生成失败后按顺序轮换补齐</div>
+        <div id="hfKeyTrustNotice" class="key-trust-notice">
+          <strong>注意：</strong>这不是 APIQIK 官方平台，是个人开源项目。你在 Hugging Face Space 上生成时，Key 会经过 Hugging Face
+          后台转发。源码公开可审计，当前代码不会持久保存或额外上报 Key；如果介意，请使用低额度临时 Key，或在本地运行 GitHub 源码版本。
+        </div>
       </div>
       <div class="field-input-wrap api-key-stack">
         <div class="api-key-primary-row">
@@ -819,6 +844,15 @@
     const CONFIG_KEYS = ['apiqik_base_url', 'cf_access_key', 'cf_secret_key', 'cf_account_id', 'cf_bucket', 'cf_public_url'];
     const LEGACY_KEYS = ['apiqik_vip_key'];
     const API_KEYS_STORAGE = 'apiqik_keys';
+    const HF_KEY_TRUST_NOTICE_STORAGE = 'apiqik_hf_key_trust_notice';
+
+    function updateHfKeyTrustNotice() {
+      const notice = document.getElementById('hfKeyTrustNotice');
+      if (!notice) return;
+      const isHuggingFace = window.SERVER_CONFIG?.is_huggingface === true;
+      notice.classList.toggle('show', isHuggingFace);
+      localStorage.setItem(HF_KEY_TRUST_NOTICE_STORAGE, isHuggingFace ? 'shown' : 'hidden');
+    }
 
     function parseStoredApiKeys() {
       const keys = [];
@@ -968,6 +1002,7 @@
     }
 
     loadFromStorage();
+    updateHfKeyTrustNotice();
   </script>
   <script src="/static/js/theme.js"></script>
 </body>

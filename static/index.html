@@ -74,6 +74,11 @@
       <a class="btn btn-warn" href="/settings">去设置</a>
     </div>
 
+    <div id="hfStorageNotice" class="notice hf-storage-notice">
+      <span>当前运行在 Hugging Face Space，生成结果文件可能会在系统重启或更新后丢失。请及时下载保存；公共存储中的参考图不受影响。</span>
+      <button id="dismissHfStorageNotice" class="btn btn-small" type="button">知道了</button>
+    </div>
+
     <div class="workspace">
       <div class="main-grid">
         <div class="panel input-panel">
@@ -551,6 +556,8 @@
       keyDot: document.getElementById("keyDot"),
       keyLabel: document.getElementById("keyLabel"),
       keyNotice: document.getElementById("keyNotice"),
+      hfStorageNotice: document.getElementById("hfStorageNotice"),
+      dismissHfStorageNotice: document.getElementById("dismissHfStorageNotice"),
       runList: document.getElementById("runList"),
       runDetail: document.getElementById("runDetail"),
       detailGallery: document.getElementById("detailGallery"),
@@ -591,6 +598,7 @@
     let activeRunId = null;
     let uploadedImages = [];
     const imageHashCacheKey = "apiqik_image_hash_cache";
+    const hfStorageNoticeKey = "apiqik_hf_storage_notice_dismissed";
     const mobileStartMedia = window.matchMedia("(max-width: 640px)");
 
 
@@ -864,6 +872,12 @@
       
       els.keyLabel.textContent = label;
       els.keyNotice.classList.toggle("show", !hasKey);
+    }
+
+    function updateHfStorageNotice() {
+      const isHuggingFace = window.SERVER_CONFIG?.is_huggingface === true;
+      const dismissed = localStorage.getItem(hfStorageNoticeKey) === "true";
+      els.hfStorageNotice.classList.toggle("show", isHuggingFace && !dismissed);
     }
 
     function setRunState(state, text) {
@@ -1999,6 +2013,7 @@
       initLinkedSizeControls();
       initModelPricingHelp();
       updateKeyState();
+      updateHfStorageNotice();
       bindUpload();
       bindHistoryEvents();
       syncStartButtonLayout();
@@ -2010,6 +2025,10 @@
       els.startBtn.addEventListener("click", startGeneration);
       els.clearBtn.addEventListener("click", clearLogs);
       els.clearResultsBtn.addEventListener("click", clearResults);
+      els.dismissHfStorageNotice.addEventListener("click", () => {
+        localStorage.setItem(hfStorageNoticeKey, "true");
+        updateHfStorageNotice();
+      });
       els.closeLightbox.addEventListener("click", closeLightbox);
       els.lightbox.addEventListener("click", event => {
         if (event.target === els.lightbox) closeLightbox();

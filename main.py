@@ -74,8 +74,10 @@ class ImageHostDeleteRequest(BaseModel):
 async def index():
     html_path = STATIC_DIR / "index.html"
     content = html_path.read_text(encoding="utf-8")
-    
-    # 检测服务端 R2 配置状态
+    return HTMLResponse(content=_inject_server_config(content))
+
+
+def _server_config() -> dict[str, bool]:
     has_public_r2 = all([
         os.getenv("CF_ACCESS_KEY"),
         os.getenv("CF_SECRET_KEY"),
@@ -83,18 +85,33 @@ async def index():
         os.getenv("CF_BUCKET"),
         os.getenv("CF_PUBLIC_URL")
     ])
-    
-    # 注入全局变量供前端使用
-    config_js = f"<script>window.SERVER_CONFIG = {{ 'has_public_r2': {'true' if has_public_r2 else 'false'} }};</script>"
-    content = content.replace("<head>", f"<head>{config_js}")
-    
-    return HTMLResponse(content=content)
+    is_huggingface = any([
+        os.getenv("SPACE_ID"),
+        os.getenv("SPACE_HOST"),
+        os.getenv("SPACE_AUTHOR_NAME"),
+    ])
+    return {
+        "has_public_r2": bool(has_public_r2),
+        "is_huggingface": bool(is_huggingface),
+    }
+
+
+def _inject_server_config(content: str) -> str:
+    config = _server_config()
+    config_js = (
+        "<script>window.SERVER_CONFIG = { "
+        f"'has_public_r2': {'true' if config['has_public_r2'] else 'false'}, "
+        f"'is_huggingface': {'true' if config['is_huggingface'] else 'false'} "
+        "};</script>"
+    )
+    return content.replace("<head>", f"<head>{config_js}", 1)
 
 
 @app.get("/settings", response_class=HTMLResponse)
 async def settings():
     html_path = STATIC_DIR / "settings.html"
-    return HTMLResponse(content=html_path.read_text(encoding="utf-8"))
+    content = html_path.read_text(encoding="utf-8")
+    return HTMLResponse(content=_inject_server_config(content))
 
 
 # ──────────────────────────────────────────────
