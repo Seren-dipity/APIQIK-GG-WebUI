@@ -36,6 +36,10 @@
   --shadow: 0 4px 24px rgba(0,0,0,0.08);
   --shadow-heavy: 0 24px 70px rgba(0,0,0,0.25);
   --overlay: rgba(0, 0, 0, 0.45);
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: color-mix(in srgb, var(--ink-tertiary) 42%, transparent);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--ink-secondary) 62%, transparent);
+  --scrollbar-corner: transparent;
 
   /* Fonts */
   --font-display: "SF Pro Display", system-ui, -apple-system, Inter, sans-serif;

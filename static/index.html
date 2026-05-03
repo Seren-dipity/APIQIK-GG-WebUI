@@ -205,18 +205,20 @@
                   </label>
                 </div>
                 <div style="position: relative;">
-                  <button id="storageHelp" class="help-icon-btn" type="button" aria-label="查看存储说明"
-                    aria-expanded="false" aria-controls="storagePopover">?</button>
+                  <button id="storageHelp" class="help-icon-btn" type="button" aria-label="查看存储说明" aria-expanded="false"
+                    aria-controls="storagePopover">?</button>
                   <div id="storagePopover" class="pricing-popover" role="tooltip" hidden>
                     <div class="pricing-section">
                       <div class="pricing-title">存储方式说明</div>
                       <div class="pricing-row" style="display: block; margin-bottom: 10px;">
                         <strong style="display: block; margin-bottom: 4px; color: var(--ink);">公共存储</strong>
-                        <span style="color: var(--ink-secondary); font-size: 11px;">使用服务端配置的默认存储。仅在 HuggingFace 部署环境中作为默认推荐。</span>
+                        <span style="color: var(--ink-secondary); font-size: 11px;">使用服务端配置的默认存储。仅在 HuggingFace
+                          部署环境中作为默认推荐。</span>
                       </div>
                       <div class="pricing-row" style="display: block;">
                         <strong style="display: block; margin-bottom: 4px; color: var(--ink);">私有存储</strong>
-                        <span style="color: var(--ink-secondary); font-size: 11px;">使用你在设置页配置的 Cloudflare R2，适合长期保留参考图，数据自主掌控。</span>
+                        <span style="color: var(--ink-secondary); font-size: 11px;">使用你在设置页配置的 Cloudflare
+                          R2，适合长期保留参考图，数据自主掌控。</span>
                       </div>
                     </div>
                   </div>
@@ -866,10 +868,10 @@
       const hasR2 = !!r2;
 
       els.keyDot.className = `dot ${hasKey ? "ok" : "bad"}`;
-      
+
       let label = hasKey ? `已配置 ${apiKeys.length} 个Key` : "未配置";
       if (hasKey && !hasR2) label += " (R2未配置)";
-      
+
       els.keyLabel.textContent = label;
       els.keyNotice.classList.toggle("show", !hasKey);
     }
@@ -1192,7 +1194,7 @@
         return {
           state: "running",
           label: total ? `生成中 ${done}/${total}` : "生成中",
-          detail: run?.errorCount ? `已重试 ${run.errorCount} 次` : ""
+          detail: ""
         };
       }
 
@@ -1209,14 +1211,14 @@
       }
 
       if (done > 0) {
-        return { state: "partial", label: `部分完成 ${done}/${total || done}`, detail: failed ? `失败 ${failed} 张` : "" };
+        return { state: "partial", label: `部分完成 ${done}/${total || done}`, detail: "" };
       }
 
       if (status === "completed") {
-        return { state: "failed", label: `生成失败 0/${total || 0}`, detail: run?.lastError || "所有 Key 都未生成成功" };
+        return { state: "failed", label: `生成失败 0/${total || 0}`, detail: "" };
       }
 
-      return { state: "failed", label: "生成失败", detail: run?.lastError || "" };
+      return { state: "failed", label: "生成失败", detail: "" };
     }
 
     function createRunGroup(payload, serverRun) {
@@ -2044,7 +2046,8 @@
 
     init();
   </script>
-  <script src="/static/js/theme.js"></script><script src="/static/js/upload-manager.js?v=2.9"></script>
+  <script src="/static/js/theme.js"></script>
+  <script src="/static/js/upload-manager.js?v=2.9"></script>
 </body>
 
 </html>

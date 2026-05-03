@@ -499,6 +499,7 @@ async def _run_batch(task_id: str, req: GenerateRequest):
     def _worker(idx: int, api_key: str, key_number: int) -> dict:
         """单次生成任务，在线程池中运行。"""
         start = time.time()
+        key_tail = _key_tail(api_key)
         clean = "".join(c if c.isalnum() else "_" for c in req.prompt[:30])
         ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
         base_name = f"{clean}_{ts}_{idx + 1}"
@@ -517,19 +518,69 @@ async def _run_batch(task_id: str, req: GenerateRequest):
             counter += 1
 
         try:
-            response = api_core.generate_image(
+            _log(f"任务 {idx + 1} 使用 Key {key_number}({key_tail}) 发起生成请求。")
+            append_attempt_audit(
+                session_id=req.session_id,
+                run_id=task_id,
+                idx=idx,
+                key_number=key_number,
                 api_key=api_key,
-                prompt=req.prompt,
-                model=req.model,
-                size=req.size,
-                ratio=req.ratio,
-                quality=req.quality,
-                output_format=req.output_format,
-                image_urls=req.image_urls,
-                base_url=req.base_url or api_core.DEFAULT_BASE_URL,
-                timeout=300,
-                n=1,
+                phase="request",
+                result="started",
             )
+            try:
+                response = api_core.generate_image(
+                    api_key=api_key,
+                    prompt=req.prompt,
+                    model=req.model,
+                    size=req.size,
+                    ratio=req.ratio,
+                    quality=req.quality,
+                    output_format=req.output_format,
+                    image_urls=req.image_urls,
+                    base_url=req.base_url or api_core.DEFAULT_BASE_URL,
+                    timeout=300,
+                    n=1,
+                )
+            except Exception as e:
+                append_attempt_audit(
+                    session_id=req.session_id,
+                    run_id=task_id,
+                    idx=idx,
+                    key_number=key_number,
+                    api_key=api_key,
+                    phase="response",
+                    result="failed",
+                    error=str(e),
+                )
+                _log(f"任务 {idx + 1} 生成接口失败，尚未进入下载阶段: {e}")
+                raise
+
+            append_attempt_audit(
+                session_id=req.session_id,
+                run_id=task_id,
+                idx=idx,
+                key_number=key_number,
+                api_key=api_key,
+                phase="response",
+                result="ok",
+            )
+            _log(f"任务 {idx + 1} 生成接口已返回，开始解析图片结果。")
+            image_refs = api_core.describe_image_references(response)
+            if not image_refs:
+                _log(f"任务 {idx + 1} 生成接口成功，但响应中未找到图片。")
+            for ref in image_refs:
+                ref_index = ref.get("index")
+                if ref.get("kind") == "url":
+                    _log(f"任务 {idx + 1} 已获取图片链接 #{ref_index}: {ref.get('value')}")
+                elif ref.get("kind") == "base64":
+                    _log(f"任务 {idx + 1} 已获取 base64 图片数据 #{ref_index}。")
+
+            def _download_log(attempt: int, total: int, url: str, error: Exception | None = None):
+                if error is None:
+                    _log(f"任务 {idx + 1} 下载图片尝试 {attempt}/{total}: {url}")
+                else:
+                    _log(f"任务 {idx + 1} 下载图片失败 {attempt}/{total}: {error}；URL: {url}")
 
             content_text = ""
             choices = response.get("choices") or []
@@ -538,8 +589,19 @@ async def _run_batch(task_id: str, req: GenerateRequest):
                 if text:
                     content_text += text + "\n"
 
-            saved = api_core.save_generation_result(response, output_path)
+            saved = api_core.save_generation_result(
+                response,
+                output_path,
+                on_download_attempt=_download_log,
+            )
             duration = time.time() - start
+
+            for path in saved:
+                info = _result_image_info(path, req.session_id)
+                _log(
+                    f"任务 {idx + 1} 保存成功: {path.name}，"
+                    f"{info.get('size_label', '大小未知')}，{info.get('dimensions_label', '尺寸未知')}。"
+                )
 
             # 推送成功事件
             image_infos = [_result_image_info(p, req.session_id) for p in saved]
@@ -623,6 +685,45 @@ def _normalize_api_keys(req: GenerateRequest) -> list[str]:
         if normalized and normalized not in keys:
             keys.append(normalized)
     return keys
+
+
+def _key_tail(api_key: str) -> str:
+    normalized = str(api_key or "").strip()
+    return normalized[-4:] if len(normalized) >= 4 else normalized or "none"
+
+
+def attempt_audit_file(session_id: str) -> Path:
+    return _session_dir(session_id) / "attempt_audit.jsonl"
+
+
+def append_attempt_audit(
+    *,
+    session_id: str,
+    run_id: str,
+    idx: int,
+    key_number: int,
+    api_key: str,
+    phase: str,
+    result: str,
+    error: str = "",
+) -> None:
+    entry = {
+        "time": datetime.now().isoformat(timespec="seconds"),
+        "run_id": run_id,
+        "idx": idx + 1,
+        "key_number": key_number,
+        "key_tail": _key_tail(api_key),
+        "phase": phase,
+        "result": result,
+    }
+    if error:
+        entry["error"] = error
+
+    with _history_lock:
+        path = attempt_audit_file(session_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as file:
+            file.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
 def _now() -> str:

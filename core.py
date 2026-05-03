@@ -7,10 +7,11 @@ import argparse
 import base64
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -408,7 +409,12 @@ def resolve_image_inputs(
     return image_urls
 
 
-def save_generation_result(response: dict[str, Any], output_path: Path) -> list[Path]:
+def save_generation_result(
+    response: dict[str, Any],
+    output_path: Path,
+    *,
+    on_download_attempt: Callable[[int, int, str, Exception | None], None] | None = None,
+) -> list[Path]:
     """Save all generated images from APIQIK web or chat-shaped responses."""
     saved_paths = []
 
@@ -421,7 +427,7 @@ def save_generation_result(response: dict[str, Any], output_path: Path) -> list[
             current_path = _get_indexed_path(output_path, i + 1 if len(data) > 1 else 0)
             url = item.get("url")
             if isinstance(url, str) and url:
-                saved_paths.append(_download_and_save(url, current_path))
+                saved_paths.append(_download_and_save(url, current_path, on_attempt=on_download_attempt))
                 continue
 
             b64_json = item.get("b64_json") or item.get("base64")
@@ -434,7 +440,7 @@ def save_generation_result(response: dict[str, Any], output_path: Path) -> list[
     for key in ("url", "image_url"):
         url = response.get(key)
         if isinstance(url, str) and url:
-            return [_download_and_save(url, output_path)]
+            return [_download_and_save(url, output_path, on_attempt=on_download_attempt)]
     
     # Chat Completions response
     choices = response.get("choices")
@@ -452,12 +458,58 @@ def save_generation_result(response: dict[str, Any], output_path: Path) -> list[
         
         for i, url in enumerate(all_urls):
             current_path = _get_indexed_path(output_path, i + 1 if len(all_urls) > 1 else 0)
-            saved_paths.append(_download_and_save(url, current_path))
+            saved_paths.append(_download_and_save(url, current_path, on_attempt=on_download_attempt))
 
     if not saved_paths:
         raise ValueError(f"No images found in response: {json.dumps(response)[:200]}...")
     
     return saved_paths
+
+
+def describe_image_references(response: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return image references from a generation response without saving them."""
+    refs: list[dict[str, Any]] = []
+
+    data = response.get("data")
+    if isinstance(data, list):
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            url = item.get("url")
+            if isinstance(url, str) and url:
+                refs.append({"kind": "url", "value": url, "index": len(refs) + 1})
+                continue
+            b64_json = item.get("b64_json") or item.get("base64")
+            if isinstance(b64_json, str) and b64_json:
+                refs.append({"kind": "base64", "value": b64_json, "index": len(refs) + 1})
+
+    if refs:
+        return refs
+
+    for key in ("url", "image_url"):
+        url = response.get(key)
+        if isinstance(url, str) and url:
+            return [{"kind": "url", "value": url, "index": 1}]
+
+    choices = response.get("choices")
+    if isinstance(choices, list):
+        for choice in choices:
+            if not isinstance(choice, dict):
+                continue
+            content = choice.get("message", {}).get("content", "")
+            if not isinstance(content, str):
+                continue
+            urls = re.findall(r"!\[.*?\]\((https?://.*?)\)", content)
+            if not urls:
+                urls = re.findall(
+                    r"(https?://[^\s\)>]+(?:\.png|\.jpg|\.jpeg|\.webp))",
+                    content,
+                    re.IGNORECASE,
+                )
+            for url in urls:
+                refs.append({"kind": "url", "value": url, "index": len(refs) + 1})
+
+    return refs
 
 
 def _save_base64_image(value: str, output_path: Path) -> Path:
@@ -476,13 +528,33 @@ def _get_indexed_path(base_path: Path, index: int) -> Path:
     return base_path.with_name(f"{base_path.stem}_{index}{base_path.suffix}")
 
 
-def _download_and_save(url: str, output_path: Path) -> Path:
+def _download_and_save(
+    url: str,
+    output_path: Path,
+    *,
+    attempts: int = 3,
+    on_attempt: Callable[[int, int, str, Exception | None], None] | None = None,
+) -> Path:
     """Helper to download a URL and save to path."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    request = Request(url, headers={"User-Agent": "apiqik-image-client/1.0"})
-    with urlopen(request, timeout=300) as response_obj:
-        output_path.write_bytes(response_obj.read())
-    return output_path
+    last_error: Exception | None = None
+    total_attempts = max(1, attempts)
+    for attempt in range(1, total_attempts + 1):
+        if on_attempt:
+            on_attempt(attempt, total_attempts, url, None)
+        try:
+            request = Request(url, headers={"User-Agent": "apiqik-image-client/1.0"})
+            with urlopen(request, timeout=300) as response_obj:
+                output_path.write_bytes(response_obj.read())
+            return output_path
+        except Exception as error:
+            last_error = error
+            if on_attempt:
+                on_attempt(attempt, total_attempts, url, error)
+            if attempt < total_attempts:
+                time.sleep(min(2, attempt))
+
+    raise RuntimeError(f"Image download failed after {total_attempts} attempts: {url} ({last_error})")
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
