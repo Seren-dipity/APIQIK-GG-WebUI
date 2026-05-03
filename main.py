@@ -58,7 +58,7 @@ class GenerateRequest(BaseModel):
     ratio: str = "1:1"
     quality: str | None = None
     output_format: str | None = None
-    concurrency: int = 10
+    concurrency: int = 1
     image_urls: list[str] = Field(default_factory=list)
 
 

@@ -116,7 +116,7 @@
 
                 <div class="command-field command-field--concurrency">
                   <label for="concurrency">请求数量</label>
-                  <input id="concurrency" type="number" min="1" max="50" value="10" />
+                  <input id="concurrency" type="number" min="1" max="50" value="1" />
                 </div>
               </div>
 
@@ -1434,7 +1434,7 @@
       // 1. 基本参数
       els.prompt.value = run.prompt || params.prompt || "";
       els.model.value = run.model || params.model || "gpt-image-2-flatfee";
-      els.concurrency.value = params.concurrency || 10;
+      els.concurrency.value = params.concurrency || 1;
       els.quality.value = params.quality || "";
       els.outputFormat.value = params.output_format || "";
 
