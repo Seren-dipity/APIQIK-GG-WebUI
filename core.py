@@ -160,16 +160,93 @@ def build_image_request(
 
 def extract_url_from_markdown(text: str) -> str | None:
     """Extract the first image URL from Markdown like ![alt](url)."""
-    import re
-    # Match ![...](url)
-    match = re.search(r"!\[.*?\]\((https?://.*?)\)", text)
-    if match:
-        return match.group(1)
-    # Fallback to any http URL in the text
-    match = re.search(r"(https?://[^\s\)\>]+(?:\.png|\.jpg|\.jpeg|\.webp))", text, re.IGNORECASE)
-    if match:
-        return match.group(1)
+    urls = extract_urls_from_text(text)
+    if urls:
+        return urls[0]
     return None
+
+
+def extract_urls_from_text(text: str) -> list[str]:
+    """Extract likely image/download URLs from text-wrapped chat responses."""
+    if not isinstance(text, str) or not text:
+        return []
+
+    patterns = [
+        r"!\[[^\]]*?\]\((https?://[^\s\)]+)\)",
+        r"(?<!!)\[[^\]]+?\]\((https?://[^\s\)]+)\)",
+        r"<img\b[^>]*\bsrc=[\"'](https?://[^\"']+)[\"']",
+        r"(https?://[^\s<>\)\]\"']+)",
+    ]
+    urls: list[str] = []
+    seen: set[str] = set()
+    trailing = ".,;:!?，。；：！？、"
+
+    for pattern in patterns:
+        for match in re.findall(pattern, text, flags=re.IGNORECASE):
+            url = match.strip().rstrip(trailing)
+            if url and url not in seen:
+                seen.add(url)
+                urls.append(url)
+
+    return urls
+
+
+def _response_json_for_diagnostics(response: dict[str, Any]) -> str:
+    return json.dumps(response, ensure_ascii=False, default=str)
+
+
+def _append_image_ref(
+    refs: list[dict[str, Any]],
+    seen: set[tuple[str, str]],
+    kind: str,
+    value: str,
+) -> None:
+    if not isinstance(value, str) or not value:
+        return
+    key = (kind, value)
+    if key in seen:
+        return
+    seen.add(key)
+    refs.append({"kind": kind, "value": value, "index": len(refs) + 1})
+
+
+def _collect_image_refs_from_value(
+    value: Any,
+    refs: list[dict[str, Any]],
+    seen: set[tuple[str, str]],
+) -> None:
+    if isinstance(value, str):
+        for url in extract_urls_from_text(value):
+            _append_image_ref(refs, seen, "url", url)
+        return
+
+    if isinstance(value, list):
+        for item in value:
+            _collect_image_refs_from_value(item, refs, seen)
+        return
+
+    if not isinstance(value, dict):
+        return
+
+    for key in ("b64_json", "base64"):
+        b64_json = value.get(key)
+        if isinstance(b64_json, str) and b64_json:
+            _append_image_ref(refs, seen, "base64", b64_json)
+
+    url = value.get("url")
+    if isinstance(url, str) and url.startswith(("http://", "https://")):
+        _append_image_ref(refs, seen, "url", url)
+
+    image_url = value.get("image_url")
+    if isinstance(image_url, str) and image_url.startswith(("http://", "https://")):
+        _append_image_ref(refs, seen, "url", image_url)
+    elif isinstance(image_url, (dict, list)):
+        _collect_image_refs_from_value(image_url, refs, seen)
+
+    for child_key, child_value in value.items():
+        if child_key in {"url", "image_url", "b64_json", "base64"}:
+            continue
+        _collect_image_refs_from_value(child_value, refs, seen)
 
 
 def generate_image(
@@ -510,25 +587,29 @@ def save_generation_result(
             return [_download_and_save(url, output_path, on_attempt=on_download_attempt)]
     
     # Chat Completions response
+    chat_refs: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+
     choices = response.get("choices")
     if isinstance(choices, list) and choices:
-        all_urls = []
         for choice in choices:
-            content = choice.get("message", {}).get("content", "")
-            # 提取 Markdown 中所有的图片链接
-            import re
-            urls = re.findall(r"!\[.*?\]\((https?://.*?)\)", content)
-            if not urls:
-                # 备选正则
-                urls = re.findall(r"(https?://[^\s\)\>]+(?:\.png|\.jpg|\.jpeg|\.webp))", content, re.IGNORECASE)
-            all_urls.extend(urls)
-        
-        for i, url in enumerate(all_urls):
-            current_path = _get_indexed_path(output_path, i + 1 if len(all_urls) > 1 else 0)
-            saved_paths.append(_download_and_save(url, current_path, on_attempt=on_download_attempt))
+            if not isinstance(choice, dict):
+                continue
+            _collect_image_refs_from_value(choice.get("message", {}), chat_refs, seen)
+
+    messages = response.get("messages")
+    if isinstance(messages, list):
+        _collect_image_refs_from_value(messages, chat_refs, seen)
+
+    for i, ref in enumerate(chat_refs):
+        current_path = _get_indexed_path(output_path, i + 1 if len(chat_refs) > 1 else 0)
+        if ref.get("kind") == "url":
+            saved_paths.append(_download_and_save(ref["value"], current_path, on_attempt=on_download_attempt))
+        elif ref.get("kind") == "base64":
+            saved_paths.append(_save_base64_image(ref["value"], current_path))
 
     if not saved_paths:
-        raise ValueError(f"No images found in response: {json.dumps(response)[:200]}...")
+        raise ValueError(f"No images found in response. Full response: {_response_json_for_diagnostics(response)}")
     
     return saved_paths
 
@@ -536,6 +617,7 @@ def save_generation_result(
 def describe_image_references(response: dict[str, Any]) -> list[dict[str, Any]]:
     """Return image references from a generation response without saving them."""
     refs: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
 
     data = response.get("data")
     if isinstance(data, list):
@@ -544,11 +626,11 @@ def describe_image_references(response: dict[str, Any]) -> list[dict[str, Any]]:
                 continue
             url = item.get("url")
             if isinstance(url, str) and url:
-                refs.append({"kind": "url", "value": url, "index": len(refs) + 1})
+                _append_image_ref(refs, seen, "url", url)
                 continue
             b64_json = item.get("b64_json") or item.get("base64")
             if isinstance(b64_json, str) and b64_json:
-                refs.append({"kind": "base64", "value": b64_json, "index": len(refs) + 1})
+                _append_image_ref(refs, seen, "base64", b64_json)
 
     if refs:
         return refs
@@ -563,18 +645,11 @@ def describe_image_references(response: dict[str, Any]) -> list[dict[str, Any]]:
         for choice in choices:
             if not isinstance(choice, dict):
                 continue
-            content = choice.get("message", {}).get("content", "")
-            if not isinstance(content, str):
-                continue
-            urls = re.findall(r"!\[.*?\]\((https?://.*?)\)", content)
-            if not urls:
-                urls = re.findall(
-                    r"(https?://[^\s\)>]+(?:\.png|\.jpg|\.jpeg|\.webp))",
-                    content,
-                    re.IGNORECASE,
-                )
-            for url in urls:
-                refs.append({"kind": "url", "value": url, "index": len(refs) + 1})
+            _collect_image_refs_from_value(choice.get("message", {}), refs, seen)
+
+    messages = response.get("messages")
+    if isinstance(messages, list):
+        _collect_image_refs_from_value(messages, refs, seen)
 
     return refs
 
