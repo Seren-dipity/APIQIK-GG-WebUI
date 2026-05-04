@@ -108,12 +108,13 @@ def build_payload_chat(
         "messages": [{"role": "user", "content": content}],
         "image_config": {
             "n": n,
-            "size": size
         },
         "stream": False,
         "temperature": 0.7,
         "top_p": 1,
     }
+    if size:
+        payload["image_config"]["size"] = size
     return payload
 
 
@@ -186,27 +187,50 @@ def generate_image(
     base_url: str = DEFAULT_BASE_URL,
     timeout: int = 600,
     group: str = "codex-image",
+    is_pg_mode: bool = False,
+    pg_cookie: str | None = None,
 ) -> dict[str, Any]:
-    """Call APIQIK's web image generation/edit endpoint."""
-    endpoint, payload = build_image_request(
-        api_key=api_key,
-        base_url=base_url,
-        prompt=prompt,
-        model=model,
-        image_urls=image_urls or [],
-        size=size,
-        quality=quality,
-        background=background,
-        output_format=output_format,
-    )
+    """Call APIQIK's web image generation/edit endpoint or PG fallback."""
+    if is_pg_mode:
+        if not pg_cookie:
+            raise ValueError("兼容模式需要有效的 Session Cookie，请先登录")
+        
+        endpoint = f"{base_url.rstrip('/')}/pg/chat/completions"
+        payload = build_payload_chat(
+            prompt=prompt,
+            model=model,
+            image_urls=image_urls or [],
+            n=n,
+            size=None, # PG 模式不传尺寸
+            group="auto" # 操练场模式强制使用 auto 分组
+        )
+        headers = {
+            "Content-Type": "application/json",
+            "Cookie": pg_cookie,
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Origin": base_url,
+            "Referer": f"{base_url.rstrip('/')}/console/playground"
+        }
+    else:
+        endpoint, req_payload = build_image_request(
+            api_key=api_key,
+            base_url=base_url,
+            prompt=prompt,
+            model=model,
+            image_urls=image_urls or [],
+            size=size,
+            quality=quality,
+            background=background,
+            output_format=output_format,
+        )
+        payload = req_payload
+        headers = {"Content-Type": "application/json"}
 
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     request = Request(
         endpoint,
         data=body,
-        headers={
-            "Content-Type": "application/json",
-        },
+        headers=headers,
         method="POST",
     )
 
@@ -218,6 +242,49 @@ def generate_image(
         raise RuntimeError(f"API request failed with HTTP {error.code}: {detail}") from error
     except URLError as error:
         raise RuntimeError(f"API request failed: {error.reason}") from error
+
+
+def login_to_apiqik(username, password, base_url=DEFAULT_BASE_URL):
+    """Login to APIQIK and return the session cookie."""
+    url = f"{base_url.rstrip('/')}/api/user/login"
+    payload = {"username": username, "password": password}
+    body = json.dumps(payload).encode("utf-8")
+    
+    request = Request(
+        url,
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        },
+        method="POST"
+    )
+    
+    try:
+        with urlopen(request, timeout=20) as response:
+            res_data = json.loads(response.read().decode("utf-8"))
+            if not res_data.get("success"):
+                raise RuntimeError(res_data.get("message", "登录失败"))
+            
+            # 提取 Set-Cookie
+            cookies = response.headers.get_all("Set-Cookie", [])
+            session_cookie = ""
+            for c in cookies:
+                if "session=" in c:
+                    session_cookie = c.split(";")[0]
+                    break
+            
+            if not session_cookie:
+                raise RuntimeError("未能在响应中找到 session cookie")
+                
+            return session_cookie
+    except HTTPError as e:
+        detail = e.read().decode("utf-8", errors="replace")
+        try:
+            msg = json.loads(detail).get("message", detail)
+        except:
+            msg = detail
+        raise RuntimeError(f"登录失败 (HTTP {e.code}): {msg}")
 
 
 def upload_image_to_r2(

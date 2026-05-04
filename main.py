@@ -60,6 +60,7 @@ class GenerateRequest(BaseModel):
     output_format: str | None = None
     concurrency: int = 1
     image_urls: list[str] = Field(default_factory=list)
+    is_pg_mode: bool = False
 
 
 class ImageHostDeleteRequest(BaseModel):
@@ -112,6 +113,63 @@ async def settings():
     html_path = STATIC_DIR / "settings.html"
     content = html_path.read_text(encoding="utf-8")
     return HTMLResponse(content=_inject_server_config(content))
+
+
+# ──────────────────────────────────────────────
+# 路由：操练场兼容模式鉴权
+# ──────────────────────────────────────────────
+
+_pg_session_cookies: dict[str, str] = {}
+
+
+def _is_pg_cookie_expired_error(error: Exception) -> bool:
+    message = str(error)
+    return "HTTP 401" in message or "HTTP 403" in message
+
+
+@app.get("/api/auth/status")
+async def auth_status(session_id: str = Query(...)):
+    """检查操练场模式的登录状态。"""
+    config = _server_config()
+    has_pg_session = bool(_pg_session_cookies.get(session_id))
+    return {
+        "is_huggingface": config["is_huggingface"],
+        "is_pg_active": has_pg_session,
+        "has_pg_session": has_pg_session,
+    }
+
+
+@app.post("/api/auth/apiqik-login")
+async def apiqik_login(payload: dict):
+    """模拟登录 apiqik 以获取操练场 session。"""
+    config = _server_config()
+    if config["is_huggingface"]:
+        raise HTTPException(status_code=403, detail="此功能在云端环境已禁用")
+
+    username = payload.get("username")
+    password = payload.get("password")
+    session_id = payload.get("session_id")
+
+    if not username or not password or not session_id:
+        raise HTTPException(status_code=400, detail="参数不完整")
+
+    try:
+        cookie = await asyncio.to_thread(
+            api_core.login_to_apiqik,
+            username,
+            password
+        )
+        _pg_session_cookies[session_id] = cookie
+        return {"success": True, "message": "登录成功，兼容模式已激活"}
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"登录失败: {str(e)}")
+
+
+@app.post("/api/auth/logout")
+async def apiqik_logout(session_id: str = Form(...)):
+    if session_id in _pg_session_cookies:
+        del _pg_session_cookies[session_id]
+    return {"success": True}
 
 
 # ──────────────────────────────────────────────
@@ -541,8 +599,12 @@ async def _run_batch(task_id: str, req: GenerateRequest):
                     base_url=req.base_url or api_core.DEFAULT_BASE_URL,
                     timeout=300,
                     n=1,
+                    is_pg_mode=req.is_pg_mode,
+                    pg_cookie=_pg_session_cookies.get(req.session_id)
                 )
             except Exception as e:
+                if req.is_pg_mode and _is_pg_cookie_expired_error(e):
+                    _pg_session_cookies.pop(req.session_id, None)
                 append_attempt_audit(
                     session_id=req.session_id,
                     run_id=task_id,

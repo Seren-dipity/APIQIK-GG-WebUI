@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="/static/css/themes/vercel-light.css">
   <link rel="stylesheet" href="/static/css/themes/vercel-dark.css">
   <link rel="stylesheet" href="/static/css/base.css">
+  <link rel="stylesheet" href="/static/css/pg_mode.css">
   <script>
     (function () {
       var s = localStorage.getItem('theme-style') || 'claude';
@@ -50,6 +51,29 @@
         <div class="command-status">
           <span class="status-pill"><span id="keyDot" class="dot"></span><span id="keyLabel">未配置</span></span>
           <span class="status-pill"><span id="runDot" class="dot"></span><span id="runStatus">待开始</span></span>
+        </div>
+        <!-- 官方操练场兼容模式开关 -->
+        <div id="pgModeContainer" class="pg-mode-container">
+          <div class="pg-mode-label">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+            </svg>
+            操练场兼容模式
+          </div>
+          <label class="pg-switch">
+            <input type="checkbox" id="pgModeToggle">
+            <span class="pg-slider"></span>
+          </label>
+          <button id="pgModeHelp" class="help-icon-btn pg-mode-help-btn" type="button" aria-label="查看官方操练场兼容模式说明"
+            aria-expanded="false" aria-controls="pgModePopover">?</button>
+          <div id="pgModePopover" class="pricing-popover pg-info-popover" role="tooltip" hidden>
+            <strong>什么是官方操练场兼容模式？</strong>
+            <p>当官方 API 节点过载或常规接口频繁失败时，此模式会使用官网登录后的会话 Cookie 调用操练场接口，兼容到当前生成流程。</p>
+            <strong>使用限制</strong>
+            <p>图片质量和稳定性不可控；目前大概率只适配 <code>gpt-image-2-flatfee</code> 模型，以及 <code>auto</code> 分组 Key。</p>
+            <strong>参数变化</strong>
+            <p>开启后 UI 的尺寸设置会被忽略。比例请写在提示词末尾，例如 <code>--ar 16:9</code>。Hugging Face 云端环境出于隐私安全禁用。</p>
+          </div>
         </div>
         <a class="btn btn-ghost icon-btn" href="https://github.com/Seren-dipity/APIQIK-GG-WebUI" target="_blank"
           title="GitHub 仓库" style="color: var(--ink-secondary);">
@@ -383,6 +407,35 @@
         </button>
       </div>
       <pre id="runLogContent" class="run-log-content"></pre>
+    </div>
+  </div>
+
+  <!-- 官方兼容模式登录弹窗 -->
+  <div id="pgLoginModal" class="pg-modal">
+    <div class="pg-modal-content">
+      <div class="pg-modal-header">
+        <h3>激活官方操练场兼容模式</h3>
+        <p>登录 APIQIK 官网账号，获取本次浏览器会话可用的官网 Cookie。</p>
+      </div>
+      <div class="pg-modal-explainer">
+        <p><strong>工作原理：</strong>本地服务会用下面的账号密码向 APIQIK 官网登录，然后把获得的会话 Cookie 用于操练场接口。</p>
+        <p><strong>保存规则：</strong>Cookie 只绑定当前浏览器的 session_id。关闭兼容模式只会停用该通道，不会清除会话；服务端会话丢失或 Cookie 过期后才需要重新登录。</p>
+        <p><strong>使用前确认：</strong>该通道用于官方 API 过载时兜底，质量不可控；大概率只支持 <code>gpt-image-2-flatfee</code> 和 <code>auto</code> 分组
+          Key。</p>
+      </div>
+      <div class="pg-form-group">
+        <label>邮箱/用户名</label>
+        <input type="text" id="pgUsername" class="pg-input" placeholder="example@mail.com">
+      </div>
+      <div class="pg-form-group">
+        <label>密码</label>
+        <input type="password" id="pgPassword" class="pg-input" placeholder="••••••••">
+      </div>
+      <div id="pgLoginError" class="pg-login-error"></div>
+      <div class="pg-modal-actions">
+        <button id="pgCancelLogin" class="btn btn-ghost">取消</button>
+        <button id="pgDoLogin" class="btn btn-blue">激活并登录</button>
+      </div>
     </div>
   </div>
 
@@ -1626,7 +1679,8 @@
         quality: els.quality.value,
         output_format: els.outputFormat.value,
         concurrency,
-        image_urls: getImageUrls()
+        image_urls: getImageUrls(),
+        is_pg_mode: PGModeManager.isActive
       };
 
       addPromptToHistory(prompt);
@@ -2011,7 +2065,172 @@
     }
     // --- History Prompt Logic End ---
 
+    // --- PG Mode Logic Start ---
+    const PGModeManager = {
+      isActive: false,
+      hasSession: false,
+      isHF: window.SERVER_CONFIG?.is_huggingface || false,
+      storageKey: 'apiqik_pg_mode_enabled',
+
+      async init() {
+        this.bindEvents();
+        await this.checkStatus();
+        this.updateUI();
+      },
+
+      async checkStatus() {
+        try {
+          const res = await fetch(`/api/auth/status?session_id=${encodeURIComponent(SESSION_ID)}`);
+          const data = await res.json();
+          this.hasSession = Boolean(data.has_pg_session ?? data.is_pg_active);
+          this.isActive = this.hasSession && localStorage.getItem(this.storageKey) === 'true';
+          this.isHF = data.is_huggingface;
+          document.getElementById('pgModeToggle').checked = this.isActive;
+        } catch (e) {
+          console.error('Failed to check PG status', e);
+        }
+      },
+
+      bindEvents() {
+        const toggle = document.getElementById('pgModeToggle');
+        const helpBtn = document.getElementById('pgModeHelp');
+        const popover = document.getElementById('pgModePopover');
+        const modal = document.getElementById('pgLoginModal');
+
+        if (this.isHF) {
+          toggle.disabled = true;
+          toggle.title = "云端环境已禁用此功能";
+        }
+
+        toggle.addEventListener('change', async () => {
+          if (this.isHF) {
+            toggle.checked = false;
+            alert("出于隐私安全考虑，官方兼容模式在 Hugging Face 云端环境已禁用。请在本地部署版本中使用。");
+            return;
+          }
+
+          if (toggle.checked) {
+            if (this.hasSession) {
+              this.isActive = true;
+              localStorage.setItem(this.storageKey, 'true');
+              this.updateUI();
+              logSystem("官方操练场兼容模式已开启。");
+            } else {
+              this.showModal();
+            }
+          } else if (!toggle.checked) {
+            this.disableMode();
+          }
+        });
+
+        // 帮助气泡
+        bindHelpPopover(helpBtn, popover);
+
+        // 登录处理
+        document.getElementById('pgCancelLogin').onclick = () => {
+          this.hideModal();
+          toggle.checked = false;
+        };
+
+        document.getElementById('pgDoLogin').onclick = () => this.login();
+
+        // 点击外部关闭模态框
+        modal.onclick = (e) => {
+          if (e.target === modal) {
+            this.hideModal();
+            toggle.checked = this.isActive;
+          }
+        };
+      },
+
+      showModal() {
+        document.getElementById('pgLoginModal').classList.add('show');
+        document.getElementById('pgLoginError').style.display = 'none';
+      },
+
+      hideModal() {
+        document.getElementById('pgLoginModal').classList.remove('show');
+      },
+
+      async login() {
+        const user = document.getElementById('pgUsername').value;
+        const pass = document.getElementById('pgPassword').value;
+        const errorEl = document.getElementById('pgLoginError');
+
+        if (!user || !pass) {
+          errorEl.textContent = "请填写账号和密码";
+          errorEl.style.display = 'block';
+          return;
+        }
+
+        const btn = document.getElementById('pgDoLogin');
+        btn.disabled = true;
+        btn.textContent = "激活中...";
+
+        try {
+          const res = await fetch('/api/auth/apiqik-login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: user, password: pass, session_id: SESSION_ID })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || "登录失败");
+
+          this.hasSession = true;
+          this.isActive = true;
+          localStorage.setItem(this.storageKey, 'true');
+          this.hideModal();
+          this.updateUI();
+          logSystem("官方操练场兼容模式已激活。");
+        } catch (e) {
+          errorEl.textContent = e.message;
+          errorEl.style.display = 'block';
+          document.getElementById('pgModeToggle').checked = false;
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "激活并登录";
+        }
+      },
+
+      disableMode() {
+        this.isActive = false;
+        localStorage.setItem(this.storageKey, 'false');
+        this.updateUI();
+        logSystem("已关闭兼容模式，官网会话会保留，重新开启时无需再次输入账号密码。");
+      },
+
+      async logout() {
+        const formData = new FormData();
+        formData.append('session_id', SESSION_ID);
+        await fetch('/api/auth/logout', { method: 'POST', body: formData });
+        this.hasSession = false;
+        this.isActive = false;
+        localStorage.setItem(this.storageKey, 'false');
+        this.updateUI();
+        logSystem("已关闭兼容模式。");
+      },
+
+      updateUI() {
+        const container = document.getElementById('pgModeContainer');
+        const toggle = document.getElementById('pgModeToggle');
+        const sizeArea = document.querySelector('.settings-grid');
+
+        if (this.isActive) {
+          container.classList.add('active');
+          toggle.checked = true;
+          // 锁定尺寸选择区域
+          sizeArea.classList.add('pg-mode-overlay-locked');
+        } else {
+          container.classList.remove('active');
+          toggle.checked = false;
+          sizeArea.classList.remove('pg-mode-overlay-locked');
+        }
+      }
+    };
+    // --- PG Mode Logic End ---
+
     function init() {
+      PGModeManager.init();
       initLinkedSizeControls();
       initModelPricingHelp();
       updateKeyState();
