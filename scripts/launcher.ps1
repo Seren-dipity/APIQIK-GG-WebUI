@@ -1,10 +1,17 @@
 ﻿$ErrorActionPreference = "Stop"
 Set-Location -LiteralPath (Split-Path -Parent $PSScriptRoot)
 
+$logDir = Join-Path (Get-Location) "logs"
+New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+$logStamp = Get-Date -Format "yyyyMMdd_HHmmss"
+$logPath = Join-Path $logDir "launcher_$logStamp.log"
+Start-Transcript -Path $logPath -Append | Out-Null
+
 Write-Host ""
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host "       APIQIK GG WebUI 启动器 v1.1" -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
+Write-Host "日志文件: $logPath" -ForegroundColor Gray
 Write-Host ""
 
 # 1. 检查 Python 环境
@@ -129,9 +136,17 @@ Start-Process powershell -WindowStyle Hidden -ArgumentList @(
 )
 
 & $pythonCmd -m uvicorn main:app --host 127.0.0.1 --port $port --log-level info
-if ($LASTEXITCODE -ne 0) {
+$serviceExitCode = $LASTEXITCODE
+Write-Host ""
+Write-Host "服务进程已退出，退出码: $LASTEXITCODE" -ForegroundColor Gray
+Write-Host "日志文件: $logPath" -ForegroundColor Gray
+Stop-Transcript | Out-Null
+
+if ($serviceExitCode -ne 0) {
     Write-Host ""
     Write-Host "服务运行出错，请检查上方日志信息。" -ForegroundColor Red
+    Write-Host "请把日志文件发给开发者: $logPath" -ForegroundColor Yellow
     Read-Host "按回车键退出"
 }
 
+exit $serviceExitCode

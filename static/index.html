@@ -681,6 +681,21 @@
       select.value = selected && values.includes(selected) ? selected : values[0];
     }
 
+    function isCustomizableImageModel(model) {
+      return model === "gpt-image-2-flatfee" || model === "gpt-image-2-vip";
+    }
+
+    function largestBuiltInSizeForRatio(ratio) {
+      const available = ratioToSizes[ratio] || [];
+      return available.reduce((largest, size) => {
+        const current = parseDimensionString(size);
+        const previous = parseDimensionString(largest);
+        if (!current) return largest;
+        if (!previous) return size;
+        return current.width * current.height > previous.width * previous.height ? size : largest;
+      }, "");
+    }
+
     function renderRatioGrid(selected) {
       els.ratioGrid.innerHTML = ratios.map(r => {
         let visualStyle = "";
@@ -732,7 +747,10 @@
         els.sizeField.style.display = "";
         els.customSizeField.style.display = "none";
         const available = ratioToSizes[val] || sizes;
-        fillSelect(els.size, ["", ...available], els.size.value);
+        const defaultSize = isCustomizableImageModel(els.model.value)
+          ? largestBuiltInSizeForRatio(val)
+          : els.size.value;
+        fillSelect(els.size, ["", ...available], defaultSize);
       }
     }
 
@@ -759,7 +777,7 @@
     function updateModelVisibility() {
       const model = els.model.value;
       const isFixedSize = model === "gpt-image-2-flatfee-2k" || model === "gpt-image-2-flatfee-4k";
-      const isCustomizable = model === "gpt-image-2-flatfee" || model === "gpt-image-2-vip";
+      const isCustomizable = isCustomizableImageModel(model);
 
       els.ratioField.style.display = isFixedSize ? "none" : "";
 
