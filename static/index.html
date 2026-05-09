@@ -648,11 +648,15 @@
     let totalGeneratedCount = 0;
     let visibleGeneratedCount = 0;
     let runCount = 0;
+    let totalHistoryRunCount = 0;
     let activeRunGroup = null;
     let runs = [];
     let activeRunId = null;
     let uploadedImages = [];
     const imageHashCacheKey = "apiqik_image_hash_cache";
+    const historyLoadLimitKey = "apiqik_history_load_limit";
+    const maxHistoryLoadLimit = 10000;
+    const defaultHistoryLoadLimit = maxHistoryLoadLimit;
     const hfStorageNoticeKey = "apiqik_hf_storage_notice_dismissed";
     const mobileStartMedia = window.matchMedia("(max-width: 640px)");
 
@@ -984,22 +988,35 @@
         return;
       }
       if (!runs.length) return;
-      if (!confirm(`删除全部 ${runs.length} 个结果组及其图片文件？`)) return;
+      if (!confirm(`删除当前已加载的 ${runs.length} 个结果组及其图片文件？`)) return;
       const ids = runs.map(run => run.run_id);
       for (const runId of ids) {
-        await deleteRunGroup(runId, { skipConfirm: true });
+        await deleteRunGroup(runId, { skipConfirm: true, skipRefetch: true });
       }
       totalGeneratedCount = 0;
       visibleGeneratedCount = 0;
       runCount = 0;
       activeRunGroup = null;
       activeRunId = null;
-      renderResults();
-      updateGalleryCount();
+      await loadHistory();
     }
 
     function updateGalleryCount() {
-      els.galleryCount.textContent = `${visibleGeneratedCount} 张结果`;
+      const loadedText = totalHistoryRunCount > runs.length ? ` · 已加载 ${runs.length}/${totalHistoryRunCount} 组` : "";
+      els.galleryCount.textContent = `${visibleGeneratedCount} 张结果${loadedText}`;
+      if (els.clearResultsBtn) {
+        els.clearResultsBtn.textContent = totalHistoryRunCount > runs.length ? "清空已加载" : "清空结果";
+      }
+    }
+
+    function normalizeHistoryLoadLimit(value) {
+      const parsed = Number.parseInt(value, 10);
+      if (!Number.isFinite(parsed)) return defaultHistoryLoadLimit;
+      return Math.max(1, Math.min(maxHistoryLoadLimit, parsed));
+    }
+
+    function getHistoryLoadLimit() {
+      return normalizeHistoryLoadLimit(localStorage.getItem(historyLoadLimitKey) || defaultHistoryLoadLimit);
     }
 
     function getR2Config() {
@@ -1228,9 +1245,11 @@
 
     function normalizeRun(run, fallbackPayload = null) {
       const params = run.params || fallbackPayload || {};
-      const images = run.images || [];
+      const images = Array.isArray(run.images) ? run.images : [];
+      const coverImage = run.cover_image || images[0] || null;
+      const imageCount = Number.isFinite(Number(run.image_count)) ? Number(run.image_count) : images.length;
       const total = Number(run.total || params.concurrency || 0);
-      const done = Number(run.done || images.length || 0);
+      const done = Number(run.done || imageCount || images.length || 0);
       return {
         run_id: run.run_id,
         created_at: run.created_at || new Date().toISOString(),
@@ -1241,6 +1260,11 @@
         params,
         total,
         done,
+        imageCount,
+        coverImage,
+        imagesLoaded: run.images_loaded === false ? false : true,
+        imagesLoading: false,
+        imagesLoadError: run.imagesLoadError || "",
         errorCount: Number(run.errorCount || 0),
         lastError: run.lastError || "",
         logs: Array.isArray(run.logs) ? run.logs : [],
@@ -1248,16 +1272,23 @@
       };
     }
 
+    function getRunImageCount(run) {
+      if (!run) return 0;
+      return Number.isFinite(Number(run.imageCount)) ? Number(run.imageCount) : (run.images?.length || 0);
+    }
+
     function progressWidth(run) {
-      const total = Number(run.total) || run.images.length || 0;
-      const done = Math.max(Number(run.done) || 0, run.images.length);
+      const imageCount = getRunImageCount(run);
+      const total = Number(run.total) || imageCount || 0;
+      const done = Math.max(Number(run.done) || 0, imageCount);
       if (!total) return run.status === "completed" ? 100 : 0;
       return Math.max(0, Math.min(100, Math.round((done / total) * 100)));
     }
 
     function deriveRunState(run) {
-      const total = Number(run?.total) || Number(run?.params?.concurrency) || run?.images?.length || 0;
-      const done = Math.max(Number(run?.done) || 0, run?.images?.length || 0);
+      const imageCount = getRunImageCount(run);
+      const total = Number(run?.total) || Number(run?.params?.concurrency) || imageCount || 0;
+      const done = Math.max(Number(run?.done) || 0, imageCount);
       const failed = Math.max(0, total - done);
       const status = typeof run === "string" ? run : run?.status;
 
@@ -1294,7 +1325,9 @@
 
     function createRunGroup(payload, serverRun) {
       const run = normalizeRun(serverRun, payload);
+      const isNewRun = !runs.some(item => item.run_id === run.run_id);
       runs = [run, ...runs.filter(item => item.run_id !== run.run_id)];
+      if (isNewRun) totalHistoryRunCount += 1;
       activeRunGroup = run;
       activeRunId = run.run_id;
       renderResults();
@@ -1302,7 +1335,7 @@
     }
 
     function renderResults() {
-      visibleGeneratedCount = runs.reduce((sum, run) => sum + run.images.length, 0);
+      visibleGeneratedCount = runs.reduce((sum, run) => sum + getRunImageCount(run), 0);
       runCount = runs.length;
       updateGalleryCount();
       renderRunList();
@@ -1316,8 +1349,10 @@
       }
       let lastDateLabel = "";
       els.runList.innerHTML = runs.map((run, index) => {
-        const cover = run.images[0]?.url;
-        const dimensions = run.images[0]?.dimensions_label || run.params?.size || "默认尺寸";
+        const coverImage = run.coverImage || run.images[0] || null;
+        const cover = coverImage?.url;
+        const imageCount = getRunImageCount(run);
+        const dimensions = coverImage?.dimensions_label || run.params?.size || "默认尺寸";
         const percent = progressWidth(run);
         const runState = deriveRunState(run);
         const dateLabel = formatRunDate(run.created_at);
@@ -1334,7 +1369,7 @@
             <span class="run-cover">${cover ? `<img src="${cover}" alt="第 ${index + 1} 组封面" loading="lazy" />` : "等待"}</span>
             <span class="run-card-meta">
               <strong class="run-card-title">${escapeHtml(run.prompt || `第 ${index + 1} 组`)}</strong>
-              <span>${run.images.length} 张 · ${dimensions}</span>
+              <span>${imageCount} 张 · ${dimensions}</span>
               <span>${escapeHtml(runState.label)}</span>
               ${runState.detail ? `<span>${escapeHtml(runState.detail)}</span>` : ""}
             </span>
@@ -1342,12 +1377,16 @@
           </button>
         `;
       }).join("");
-      els.runList.querySelectorAll("[data-run-id]").forEach(button => {
-        button.addEventListener("click", () => {
-          activeRunId = button.dataset.runId;
-          activeRunGroup = runs.find(run => run.run_id === activeRunId) || null;
-          renderResults();
-        });
+    }
+
+    function bindRunListEvents() {
+      els.runList.addEventListener("click", event => {
+        const button = event.target.closest("[data-run-id]");
+        if (!button || !els.runList.contains(button)) return;
+        activeRunId = button.dataset.runId;
+        activeRunGroup = runs.find(run => run.run_id === activeRunId) || null;
+        renderResults();
+        ensureRunImagesLoaded(activeRunId);
       });
     }
 
@@ -1360,6 +1399,10 @@
       }
       const params = run.params || {};
       const runState = deriveRunState(run);
+      const imageCount = getRunImageCount(run);
+      const detailContent = run.imagesLoaded
+        ? (run.images.length ? run.images.map((image, index) => imageCardHtml(image, index + 1)).join("") : '<div class="empty-state compact">等待结果</div>')
+        : `<div class="empty-state compact">${run.imagesLoadError ? escapeHtml(run.imagesLoadError) : (run.imagesLoading ? "正在加载该组图片..." : `该历史组包含 ${imageCount} 张图片，正在按需加载...`)}</div>`;
       els.runDetail.innerHTML = `
         <div class="detail-header">
           <h3 class="detail-title" style="grid-column: 1; grid-row: 1;">${escapeHtml(run.prompt || "未命名结果组")}</h3>
@@ -1378,7 +1421,7 @@
           </div>
         </div>
         <div id="detailGallery" class="gallery">
-          ${run.images.length ? run.images.map((image, index) => imageCardHtml(image, index + 1)).join("") : '<div class="empty-state compact">等待结果</div>'}
+          ${detailContent}
         </div>
       `;
       els.detailGallery = document.getElementById("detailGallery");
@@ -1388,6 +1431,37 @@
       els.detailGallery.querySelectorAll(".preview").forEach(button => {
         button.addEventListener("click", () => openLightbox(button.dataset.url));
       });
+      ensureRunImagesLoaded(run.run_id);
+    }
+
+    async function ensureRunImagesLoaded(runId) {
+      const run = runs.find(item => item.run_id === runId);
+      if (!run || run.imagesLoaded || run.imagesLoading || run.imagesLoadError || isRunActive(runId)) return;
+      run.imagesLoading = true;
+      try {
+        const response = await fetch(`/api/history/${encodeURIComponent(runId)}?session_id=${encodeURIComponent(SESSION_ID)}`);
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.detail || "历史详情加载失败");
+        const fullRun = normalizeRun(data.run || {});
+        const index = runs.findIndex(item => item.run_id === runId);
+        if (index === -1) return;
+        runs[index] = {
+          ...runs[index],
+          ...fullRun,
+          logs: runs[index].logs?.length ? runs[index].logs : fullRun.logs
+        };
+        if (activeRunId === runId) {
+          activeRunGroup = runs[index];
+          renderResults();
+        } else {
+          updateGalleryCount();
+        }
+      } catch (error) {
+        run.imagesLoading = false;
+        run.imagesLoadError = error.message;
+        logSystem(error.message);
+        if (activeRunId === runId) renderRunDetail();
+      }
     }
 
     function imageCardHtml(image, index) {
@@ -1436,15 +1510,39 @@
         group.images.push(image);
         group.done = group.images.length;
       });
+      group.imageCount = group.images.length;
+      group.coverImage = group.coverImage || group.images[0] || null;
+      group.imagesLoaded = true;
+      group.imagesLoading = false;
       renderResults();
     }
 
     async function loadHistory() {
       try {
-        const response = await fetch(`/api/history?session_id=${encodeURIComponent(SESSION_ID)}`);
+        const limit = getHistoryLoadLimit();
+        const response = await fetch(`/api/history?session_id=${encodeURIComponent(SESSION_ID)}&limit=${encodeURIComponent(limit)}&summary=true`);
         const data = await response.json();
         if (!response.ok) throw new Error(data.detail || "历史加载失败");
-        runs = (data.runs || []).map(run => normalizeRun(run));
+        const previousRuns = new Map(runs.map(run => [run.run_id, run]));
+        runs = (data.runs || []).map(run => {
+          const normalized = normalizeRun(run);
+          const previous = previousRuns.get(normalized.run_id);
+          if (!previous) return normalized;
+          const keepLoadedImages = previous.imagesLoaded && !normalized.imagesLoaded;
+          return {
+            ...normalized,
+            images: keepLoadedImages ? previous.images : normalized.images,
+            imageCount: Math.max(getRunImageCount(previous), getRunImageCount(normalized)),
+            coverImage: normalized.coverImage || previous.coverImage || previous.images[0] || null,
+            imagesLoaded: keepLoadedImages ? true : normalized.imagesLoaded,
+            imagesLoading: false,
+            imagesLoadError: previous.imagesLoadError || normalized.imagesLoadError,
+            errorCount: previous.errorCount || normalized.errorCount,
+            lastError: previous.lastError || normalized.lastError,
+            logs: previous.logs || normalized.logs
+          };
+        });
+        totalHistoryRunCount = Number.isFinite(Number(data.total)) ? Number(data.total) : runs.length;
 
         // 一次性迁移旧版记录中的提示词到新的历史记录组件
         if (!localStorage.getItem('apiqik_prompt_migrated') && runs.length > 0) {
@@ -1465,8 +1563,10 @@
           localStorage.setItem('apiqik_prompt_migrated', 'true');
         }
 
-        activeRunId = runs[0]?.run_id || null;
-        activeRunGroup = runs[0] || null;
+        if (!runs.some(run => run.run_id === activeRunId)) {
+          activeRunId = runs[0]?.run_id || null;
+        }
+        activeRunGroup = runs.find(run => run.run_id === activeRunId) || runs[0] || null;
         renderResults();
       } catch (error) {
         logSystem(error.message);
@@ -1480,17 +1580,22 @@
         logSystem("该结果组仍在生成中，完成后再删除。");
         return;
       }
-      if (!options.skipConfirm && !confirm(`删除该组 ${run.images.length} 张图片文件？`)) return;
+      if (!options.skipConfirm && !confirm(`删除该组 ${getRunImageCount(run)} 张图片文件？`)) return;
       try {
         const response = await fetch(`/api/history/${encodeURIComponent(runId)}?session_id=${encodeURIComponent(SESSION_ID)}`, { method: "DELETE" });
         const data = await response.json();
         if (!response.ok) throw new Error(data.detail || "删除失败");
         runs = runs.filter(item => item.run_id !== runId);
+        totalHistoryRunCount = Math.max(0, totalHistoryRunCount - 1);
         if (activeRunId === runId) {
           activeRunId = runs[0]?.run_id || null;
           activeRunGroup = runs[0] || null;
         }
-        renderResults();
+        if (!options.skipRefetch && totalHistoryRunCount > runs.length) {
+          await loadHistory();
+        } else {
+          renderResults();
+        }
         logSystem(`已删除结果组: ${runId}`);
       } catch (error) {
         logSystem(error.message);
@@ -2255,6 +2360,7 @@
       updateHfStorageNotice();
       bindUpload();
       bindHistoryEvents();
+      bindRunListEvents();
       syncStartButtonLayout();
       if (mobileStartMedia.addEventListener) {
         mobileStartMedia.addEventListener("change", syncStartButtonLayout);

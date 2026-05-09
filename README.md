@@ -276,7 +276,8 @@ window.SERVER_CONFIG = {
 | `POST` | `/api/generate` | 创建批量生成任务 |
 | `GET` | `/api/tasks/{task_id}/stream` | SSE 实时事件 |
 | `GET` | `/api/tasks/{task_id}` | 查询任务状态 |
-| `GET` | `/api/history` | 查询当前 session 历史 |
+| `GET` | `/api/history?limit=10000&summary=true` | 查询当前 session 最近历史，可用 `limit` 限制返回组数，`summary=true` 只返回列表摘要 |
+| `GET` | `/api/history/{run_id}` | 查询单个历史组完整图片明细 |
 | `DELETE` | `/api/history/{run_id}` | 删除历史记录和对应输出文件 |
 | `POST` | `/api/upload-image` | 上传参考图到 R2 |
 | `GET` | `/api/uploads` | 查询上传记录 |

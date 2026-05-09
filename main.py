@@ -514,10 +514,24 @@ async def task_status(task_id: str):
 
 
 @app.get("/api/history")
-async def history(session_id: str = Query(...)):
+async def history(
+    session_id: str = Query(...),
+    limit: int | None = Query(None, ge=1, le=10000),
+    summary: bool = Query(False),
+):
     if not _SESSION_ID_RE.match(session_id):
         raise HTTPException(status_code=400, detail="session_id 格式不合法")
-    return load_history(session_id)
+    return load_history(session_id, limit=limit, summary=summary)
+
+
+@app.get("/api/history/{run_id}")
+async def history_run(run_id: str, session_id: str = Query(...)):
+    if not _SESSION_ID_RE.match(session_id):
+        raise HTTPException(status_code=400, detail="session_id 格式不合法")
+    run = get_history_run(run_id, session_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="历史记录不存在")
+    return {"run": run}
 
 
 @app.delete("/api/history/{run_id}")
@@ -836,17 +850,45 @@ def history_file(session_id: str) -> Path:
     return _session_dir(session_id) / "history.json"
 
 
-def load_history(session_id: str) -> dict[str, Any]:
+def _with_history_image_meta(run: dict[str, Any], include_images: bool) -> dict[str, Any]:
+    images = run.get("images")
+    images = images if isinstance(images, list) else []
+    item = dict(run)
+    item["image_count"] = len(images)
+    item["cover_image"] = images[0] if images else None
+    item["images_loaded"] = include_images
+    if include_images:
+        item["images"] = images
+    else:
+        item["images"] = []
+    return item
+
+
+def load_history(session_id: str, limit: int | None = None, summary: bool = False) -> dict[str, Any]:
     with _history_lock:
         path = history_file(session_id)
         if not path.exists():
-            return {"runs": []}
+            return {"runs": [], "total": 0}
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
-            return {"runs": []}
+            return {"runs": [], "total": 0}
         runs = data.get("runs")
-        return {"runs": runs if isinstance(runs, list) else []}
+        runs = runs if isinstance(runs, list) else []
+        total = len(runs)
+        if limit is not None:
+            runs = runs[:limit]
+        if summary:
+            runs = [_with_history_image_meta(run, include_images=False) for run in runs if isinstance(run, dict)]
+        return {"runs": runs, "total": total}
+
+
+def get_history_run(run_id: str, session_id: str) -> dict[str, Any] | None:
+    with _history_lock:
+        for run in load_history(session_id)["runs"]:
+            if isinstance(run, dict) and run.get("run_id") == run_id:
+                return _with_history_image_meta(run, include_images=True)
+    return None
 
 
 def save_history(data: dict[str, Any], session_id: str) -> None:
@@ -854,7 +896,8 @@ def save_history(data: dict[str, Any], session_id: str) -> None:
         path = history_file(session_id)
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp_path = path.with_suffix(".json.tmp")
-        tmp_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        payload = {"runs": data.get("runs", []) if isinstance(data.get("runs"), list) else []}
+        tmp_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         tmp_path.replace(path)
 
 

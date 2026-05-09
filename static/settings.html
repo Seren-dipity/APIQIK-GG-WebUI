@@ -780,6 +780,29 @@
 
   <div class="divider"></div>
 
+  <!-- 界面与历史 -->
+  <div class="card">
+    <div class="card-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 6v6l4 2" />
+      </svg>
+      界面与历史
+    </div>
+
+    <div class="field">
+      <div>
+        <div class="field-label">历史加载组数</div>
+        <div class="field-hint">首页打开时加载最近多少个结果组，默认最大 10000；保存后下次打开首页生效</div>
+      </div>
+      <div class="field-input-wrap">
+        <input id="apiqik_history_load_limit" type="number" min="1" max="10000" step="1" inputmode="numeric" placeholder="10000" />
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
   <!-- Cloudflare R2 配置 -->
   <details class="card optional-card" id="cloudflareConfig">
     <summary class="card-title">
@@ -872,10 +895,13 @@
   <div class="toast" id="toast"></div>
 
   <script>
-    const KEYS = ['apiqik_key', 'apiqik_keys', 'apiqik_base_url', 'cf_access_key', 'cf_secret_key', 'cf_account_id', 'cf_bucket', 'cf_public_url'];
+    const KEYS = ['apiqik_key', 'apiqik_keys', 'apiqik_base_url', 'apiqik_history_load_limit', 'cf_access_key', 'cf_secret_key', 'cf_account_id', 'cf_bucket', 'cf_public_url'];
     const CONFIG_KEYS = ['apiqik_base_url', 'cf_access_key', 'cf_secret_key', 'cf_account_id', 'cf_bucket', 'cf_public_url'];
     const LEGACY_KEYS = ['apiqik_vip_key'];
     const API_KEYS_STORAGE = 'apiqik_keys';
+    const HISTORY_LOAD_LIMIT_STORAGE = 'apiqik_history_load_limit';
+    const MAX_HISTORY_LOAD_LIMIT = 10000;
+    const DEFAULT_HISTORY_LOAD_LIMIT = MAX_HISTORY_LOAD_LIMIT;
     const HF_KEY_TRUST_NOTICE_STORAGE = 'apiqik_hf_key_trust_notice';
 
     function updateHfKeyTrustNotice() {
@@ -922,6 +948,12 @@
       }
     }
 
+    function normalizeHistoryLoadLimit(value) {
+      const parsed = Number.parseInt(value, 10);
+      if (!Number.isFinite(parsed)) return DEFAULT_HISTORY_LOAD_LIMIT;
+      return Math.max(1, Math.min(MAX_HISTORY_LOAD_LIMIT, parsed));
+    }
+
     function bindToggleButton(btn) {
       btn.addEventListener('click', () => {
         const targetId = btn.dataset.target;
@@ -966,6 +998,8 @@
         const el = document.getElementById(k);
         if (el) el.value = val;
       });
+      const historyLimit = normalizeHistoryLoadLimit(localStorage.getItem(HISTORY_LOAD_LIMIT_STORAGE) || DEFAULT_HISTORY_LOAD_LIMIT);
+      document.getElementById(HISTORY_LOAD_LIMIT_STORAGE).value = String(historyLimit);
       const apiKeys = parseStoredApiKeys();
       document.getElementById('apiqik_key').value = apiKeys[0] || '';
       renderApiKeyFields(apiKeys);
@@ -983,6 +1017,7 @@
 
     function saveAll() {
       let hasError = false;
+      const previousHistoryLimit = normalizeHistoryLoadLimit(localStorage.getItem(HISTORY_LOAD_LIMIT_STORAGE) || DEFAULT_HISTORY_LOAD_LIMIT);
 
       LEGACY_KEYS.forEach(k => localStorage.removeItem(k));
       const apiKeys = collectApiKeysFromForm();
@@ -998,6 +1033,10 @@
           }
         }
       });
+      const historyLimit = normalizeHistoryLoadLimit(document.getElementById(HISTORY_LOAD_LIMIT_STORAGE)?.value);
+      localStorage.setItem(HISTORY_LOAD_LIMIT_STORAGE, String(historyLimit));
+      document.getElementById(HISTORY_LOAD_LIMIT_STORAGE).value = String(historyLimit);
+      const historyLimitChanged = historyLimit !== previousHistoryLimit;
 
       if (!apiKeys.length) {
         showToast('APIQIK Key 未填写，生成功能将无法使用', true);
@@ -1005,7 +1044,11 @@
       }
 
       updateStatusBar();
-      if (!hasError) showToast('配置已保存到浏览器本地 ✓');
+      if (!hasError) {
+        showToast(historyLimitChanged
+          ? '配置已保存到浏览器本地 ✓ 历史加载组数将在下次打开首页时生效；当前已打开的首页请刷新'
+          : '配置已保存到浏览器本地 ✓');
+      }
     }
 
     function clearAll() {
@@ -1016,6 +1059,7 @@
         const el = document.getElementById(k);
         if (el) el.value = '';
       });
+      document.getElementById(HISTORY_LOAD_LIMIT_STORAGE).value = String(DEFAULT_HISTORY_LOAD_LIMIT);
       document.getElementById('apiqik_key').value = '';
       renderApiKeyFields([]);
       updateStatusBar();
