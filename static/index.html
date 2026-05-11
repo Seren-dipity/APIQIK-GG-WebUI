@@ -131,10 +131,15 @@
                     </div>
                   </div>
                   <select id="model">
-                    <option value="gpt-image-2-flatfee">gpt-image-2-flatfee</option>
-                    <option value="gpt-image-2-flatfee-4k">gpt-image-2-flatfee-4k</option>
-                    <option value="gpt-image-2-flatfee-2k">gpt-image-2-flatfee-2k</option>
-                    <option value="gpt-image-2-vip">gpt-image-2-vip</option>
+                    <optgroup label="图片">
+                      <option value="gpt-image-2-flatfee">gpt-image-2-flatfee</option>
+                      <option value="gpt-image-2-flatfee-4k">gpt-image-2-flatfee-4k</option>
+                      <option value="gpt-image-2-flatfee-2k">gpt-image-2-flatfee-2k</option>
+                      <option value="gpt-image-2-vip">gpt-image-2-vip</option>
+                    </optgroup>
+                    <optgroup label="视频">
+                      <option value="happyhorse-1.0-i2v">happyhorse-1.0-i2v</option>
+                    </optgroup>
                   </select>
                 </div>
 
@@ -312,6 +317,34 @@
                   <option value="webp">webp</option>
                 </select>
               </div>
+              <div class="field" id="videoDurationField" style="display: none;">
+                <label for="videoDuration">视频时长</label>
+                <select id="videoDuration">
+                  <option value="5">5 秒</option>
+                  <option value="10">10 秒</option>
+                  <option value="15">15 秒</option>
+                </select>
+              </div>
+              <div class="field" id="videoSizeField" style="display: none;">
+                <label for="videoSize">视频比例</label>
+                <select id="videoSize">
+                  <option value="">auto</option>
+                  <option value="16:9">16:9</option>
+                  <option value="9:16">9:16</option>
+                  <option value="1:1">1:1</option>
+                  <option value="4:3">4:3</option>
+                  <option value="3:4">3:4</option>
+                  <option value="3:2">3:2</option>
+                  <option value="2:3">2:3</option>
+                </select>
+              </div>
+              <div class="field" id="videoResolutionField" style="display: none;">
+                <label for="videoResolution">视频分辨率</label>
+                <select id="videoResolution">
+                  <option value="720P">720P</option>
+                  <option value="1080P">1080P</option>
+                </select>
+              </div>
             </div>
             <div id="mobileStartSlot" class="mobile-start-slot"></div>
           </section>
@@ -371,6 +404,7 @@
       </svg>
     </button>
     <img id="lightboxImage" alt="预览" />
+    <video id="lightboxVideo" controls playsinline></video>
   </div>
 
   <div id="historyModal" class="lightbox">
@@ -597,6 +631,12 @@
       customSizeSuggestions: document.getElementById("customSizeSuggestions"),
       quality: document.getElementById("quality"),
       outputFormat: document.getElementById("outputFormat"),
+      videoDurationField: document.getElementById("videoDurationField"),
+      videoDuration: document.getElementById("videoDuration"),
+      videoSizeField: document.getElementById("videoSizeField"),
+      videoSize: document.getElementById("videoSize"),
+      videoResolutionField: document.getElementById("videoResolutionField"),
+      videoResolution: document.getElementById("videoResolution"),
       concurrency: document.getElementById("concurrency"),
       prompt: document.getElementById("prompt"),
       startAction: document.getElementById("startAction"),
@@ -633,6 +673,7 @@
       addUrlBtn: document.getElementById("addUrlBtn"),
       lightbox: document.getElementById("lightbox"),
       lightboxImage: document.getElementById("lightboxImage"),
+      lightboxVideo: document.getElementById("lightboxVideo"),
       closeLightbox: document.getElementById("closeLightbox"),
       runLogModal: document.getElementById("runLogModal"),
       runLogTitle: document.getElementById("runLogTitle"),
@@ -687,6 +728,10 @@
 
     function isCustomizableImageModel(model) {
       return model === "gpt-image-2-flatfee" || model === "gpt-image-2-vip";
+    }
+
+    function isVideoModel(model) {
+      return model === "happyhorse-1.0-i2v" || model === "happyhorse-1.0-t2v";
     }
 
     function largestBuiltInSizeForRatio(ratio) {
@@ -780,8 +825,27 @@
 
     function updateModelVisibility() {
       const model = els.model.value;
+      const isVideo = isVideoModel(model);
       const isFixedSize = model === "gpt-image-2-flatfee-2k" || model === "gpt-image-2-flatfee-4k";
       const isCustomizable = isCustomizableImageModel(model);
+
+      els.ratioField.style.display = isVideo ? "none" : (isFixedSize ? "none" : "");
+      els.sizeField.style.display = isVideo ? "none" : els.sizeField.style.display;
+      els.customSizeField.style.display = isVideo ? "none" : els.customSizeField.style.display;
+      els.quality.closest(".field").style.display = isVideo ? "none" : "";
+      els.outputFormat.closest(".field").style.display = isVideo ? "none" : "";
+      els.videoDurationField.style.display = isVideo ? "" : "none";
+      els.videoSizeField.style.display = isVideo ? "" : "none";
+      els.videoResolutionField.style.display = isVideo ? "" : "none";
+      els.concurrency.max = isVideo ? "10" : "50";
+      if (isVideo && Number(els.concurrency.value) > 10) els.concurrency.value = "10";
+      els.prompt.placeholder = isVideo
+        ? "描述参考图要如何运动、镜头如何变化..."
+        : "输入提示词，描述你想生成的画面...";
+      if (isVideo) {
+        hideCustomSizeSuggestions();
+        return;
+      }
 
       els.ratioField.style.display = isFixedSize ? "none" : "";
 
@@ -988,7 +1052,7 @@
         return;
       }
       if (!runs.length) return;
-      if (!confirm(`删除当前已加载的 ${runs.length} 个结果组及其图片文件？`)) return;
+      if (!confirm(`删除当前已加载的 ${runs.length} 个结果组及其文件？`)) return;
       const ids = runs.map(run => run.run_id);
       for (const runId of ids) {
         await deleteRunGroup(runId, { skipConfirm: true, skipRefetch: true });
@@ -1003,7 +1067,7 @@
 
     function updateGalleryCount() {
       const loadedText = totalHistoryRunCount > runs.length ? ` · 已加载 ${runs.length}/${totalHistoryRunCount} 组` : "";
-      els.galleryCount.textContent = `${visibleGeneratedCount} 张结果${loadedText}`;
+      els.galleryCount.textContent = `${visibleGeneratedCount} 个结果${loadedText}`;
       if (els.clearResultsBtn) {
         els.clearResultsBtn.textContent = totalHistoryRunCount > runs.length ? "清空已加载" : "清空结果";
       }
@@ -1234,6 +1298,15 @@
 
     function summarizePayload(payload) {
       const refs = payload.image_urls?.length ? `${payload.image_urls.length} 张参考图` : "纯生图";
+      if (payload.media_type === "video") {
+        return [
+          `${payload.video_duration || 5} 秒`,
+          payload.size || "auto",
+          payload.video_resolution || "720P",
+          refs,
+          `并发 ${payload.concurrency}`
+        ];
+      }
       return [
         payload.size || "默认尺寸",
         payload.quality || "默认画质",
@@ -1250,11 +1323,13 @@
       const imageCount = Number.isFinite(Number(run.image_count)) ? Number(run.image_count) : images.length;
       const total = Number(run.total || params.concurrency || 0);
       const done = Number(run.done || imageCount || images.length || 0);
+      const mediaType = run.media_type || params.media_type || (isVideoModel(run.model) || isVideoModel(params.model) ? "video" : "image");
       return {
         run_id: run.run_id,
         created_at: run.created_at || new Date().toISOString(),
         updated_at: run.updated_at || run.created_at || new Date().toISOString(),
         status: run.status || "running",
+        mediaType,
         prompt: run.prompt || params.prompt || "",
         model: run.model || params.model || "",
         params,
@@ -1352,7 +1427,9 @@
         const coverImage = run.coverImage || run.images[0] || null;
         const cover = coverImage?.url;
         const imageCount = getRunImageCount(run);
-        const dimensions = coverImage?.dimensions_label || run.params?.size || "默认尺寸";
+        const isVideo = run.mediaType === "video";
+        const itemUnit = isVideo ? "个视频" : "张";
+        const dimensions = isVideo ? (run.params?.video_resolution || "720P") : (coverImage?.dimensions_label || run.params?.size || "默认尺寸");
         const percent = progressWidth(run);
         const runState = deriveRunState(run);
         const dateLabel = formatRunDate(run.created_at);
@@ -1366,10 +1443,10 @@
         return `
           ${dateDivider}
           <button class="result-group ${run.run_id === activeRunId ? "active" : ""}" type="button" data-run-id="${run.run_id}">
-            <span class="run-cover">${cover ? `<img src="${cover}" alt="第 ${index + 1} 组封面" loading="lazy" />` : "等待"}</span>
+            <span class="run-cover">${cover ? (isVideo ? `<video src="${cover}" muted playsinline preload="metadata"></video>` : `<img src="${cover}" alt="第 ${index + 1} 组封面" loading="lazy" />`) : "等待"}</span>
             <span class="run-card-meta">
               <strong class="run-card-title">${escapeHtml(run.prompt || `第 ${index + 1} 组`)}</strong>
-              <span>${imageCount} 张 · ${dimensions}</span>
+              <span>${imageCount} ${itemUnit} · ${dimensions}</span>
               <span>${escapeHtml(runState.label)}</span>
               ${runState.detail ? `<span>${escapeHtml(runState.detail)}</span>` : ""}
             </span>
@@ -1401,8 +1478,8 @@
       const runState = deriveRunState(run);
       const imageCount = getRunImageCount(run);
       const detailContent = run.imagesLoaded
-        ? (run.images.length ? run.images.map((image, index) => imageCardHtml(image, index + 1)).join("") : '<div class="empty-state compact">等待结果</div>')
-        : `<div class="empty-state compact">${run.imagesLoadError ? escapeHtml(run.imagesLoadError) : (run.imagesLoading ? "正在加载该组图片..." : `该历史组包含 ${imageCount} 张图片，正在按需加载...`)}</div>`;
+        ? (run.images.length ? run.images.map((image, index) => imageCardHtml(image, index + 1, run.mediaType)).join("") : '<div class="empty-state compact">等待结果</div>')
+        : `<div class="empty-state compact">${run.imagesLoadError ? escapeHtml(run.imagesLoadError) : (run.imagesLoading ? "正在加载该组结果..." : `该历史组包含 ${imageCount} 个结果，正在按需加载...`)}</div>`;
       els.runDetail.innerHTML = `
         <div class="detail-header">
           <h3 class="detail-title" style="grid-column: 1; grid-row: 1;">${escapeHtml(run.prompt || "未命名结果组")}</h3>
@@ -1429,7 +1506,10 @@
       els.runDetail.querySelector("[data-reuse-run]").addEventListener("click", () => reuseParameters(run.run_id));
       els.runDetail.querySelector("[data-run-log]").addEventListener("click", () => openRunLog(run.run_id));
       els.detailGallery.querySelectorAll(".preview").forEach(button => {
-        button.addEventListener("click", () => openLightbox(button.dataset.url));
+        button.addEventListener("click", event => {
+          if (button.dataset.mediaType === "video" && event.target.closest("video")) return;
+          openLightbox(button.dataset.url, button.dataset.mediaType || "image");
+        });
       });
       ensureRunImagesLoaded(run.run_id);
     }
@@ -1464,15 +1544,18 @@
       }
     }
 
-    function imageCardHtml(image, index) {
+    function imageCardHtml(image, index, runMediaType = "image") {
+      const mediaType = image.media_type || runMediaType || "image";
+      const isVideo = mediaType === "video";
       const sizeLabel = image.size_label || "大小读取中";
-      const dimensionsLabel = image.dimensions_label || "尺寸读取中";
+      const dimensionsLabel = isVideo ? "视频" : (image.dimensions_label || "尺寸读取中");
       const durationLabel = image.duration ? `${image.duration}s` : "";
+      const preview = isVideo
+        ? `<div class="preview video-preview" data-url="${image.url}" data-media-type="${mediaType}"><video src="${image.url}" controls playsinline preload="metadata"></video></div>`
+        : `<button class="preview" type="button" data-url="${image.url}" data-media-type="${mediaType}"><img src="${image.url}" alt="生成图 ${index}" loading="lazy" /></button>`;
       return `
         <article class="image-card">
-          <button class="preview" type="button" data-url="${image.url}">
-            <img src="${image.url}" alt="生成图 ${index}" loading="lazy" />
-          </button>
+          ${preview}
           <div class="image-meta">
             <div class="image-meta-main">
               <span>#${index} ${durationLabel}</span>
@@ -1504,6 +1587,7 @@
       if (!group) return;
       items.forEach(item => {
         const image = typeof item === "string" ? { url: item } : item;
+        image.media_type = image.media_type || group.mediaType || "image";
         const url = image.url;
         if (!url) return;
         totalGeneratedCount += 1;
@@ -1580,7 +1664,7 @@
         logSystem("该结果组仍在生成中，完成后再删除。");
         return;
       }
-      if (!options.skipConfirm && !confirm(`删除该组 ${getRunImageCount(run)} 张图片文件？`)) return;
+      if (!options.skipConfirm && !confirm(`删除该组 ${getRunImageCount(run)} 个结果文件？`)) return;
       try {
         const response = await fetch(`/api/history/${encodeURIComponent(runId)}?session_id=${encodeURIComponent(SESSION_ID)}`, { method: "DELETE" });
         const data = await response.json();
@@ -1613,9 +1697,14 @@
       els.concurrency.value = params.concurrency || 1;
       els.quality.value = params.quality || "";
       els.outputFormat.value = params.output_format || "";
+      if (params.video_duration) els.videoDuration.value = String(params.video_duration);
+      els.videoSize.value = params.media_type === "video" ? (params.size || "") : "";
+      if (params.video_resolution) els.videoResolution.value = params.video_resolution;
 
       // 2. 尺寸与比例
-      if (params.ratio === "auto" || params.size === "auto") {
+      if (isVideoModel(els.model.value)) {
+        updateModelVisibility();
+      } else if (params.ratio === "auto" || params.size === "auto") {
         renderRatioGrid("auto");
         onRatioChange("auto");
       } else if (params.ratio) {
@@ -1730,18 +1819,31 @@
       }[char]));
     }
 
-    function openLightbox(url) {
-      els.lightboxImage.src = url;
+    function openLightbox(url, mediaType = "image") {
+      if (mediaType === "video") {
+        els.lightboxImage.style.display = "none";
+        els.lightboxVideo.style.display = "block";
+        els.lightboxVideo.src = url;
+      } else {
+        els.lightboxVideo.pause();
+        els.lightboxVideo.removeAttribute("src");
+        els.lightboxVideo.style.display = "none";
+        els.lightboxImage.style.display = "block";
+        els.lightboxImage.src = url;
+      }
       els.lightbox.classList.add("show");
     }
 
     function closeLightbox() {
       els.lightbox.classList.remove("show");
       els.lightboxImage.src = "";
+      els.lightboxVideo.pause();
+      els.lightboxVideo.removeAttribute("src");
     }
 
     async function startGeneration() {
       const model = els.model.value;
+      const isVideo = isVideoModel(model);
       localStorage.removeItem("apiqik_vip_key");
       const apiKeys = getApiKeys();
       const apiKey = apiKeys[0] || "";
@@ -1760,6 +1862,10 @@
       }
       if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 50) {
         logSystem("并发数量必须在 1 到 50 之间。");
+        return;
+      }
+      if (isVideo && concurrency > 10) {
+        logSystem("视频生成请求数量不能超过 10。");
         return;
       }
 
@@ -1790,20 +1896,30 @@
         finalRatio = "";
       }
 
+      const referenceImageUrls = getImageUrls();
+      const submitModel = model === "happyhorse-1.0-i2v" && !referenceImageUrls.length ? "happyhorse-1.0-t2v" : model;
+      if (isVideo) {
+        finalSize = els.videoSize.value || "";
+        finalRatio = "";
+      }
+
       const payload = {
         api_key: apiKey,
         api_keys: apiKeys,
         base_url: localStorage.getItem("apiqik_base_url") || "https://value.apiqik.online",
         session_id: SESSION_ID,
         prompt,
-        model,
+        model: submitModel,
         size: finalSize,
         ratio: finalRatio,
         quality: els.quality.value,
         output_format: els.outputFormat.value,
         concurrency,
-        image_urls: getImageUrls(),
-        is_pg_mode: PGModeManager.isActive
+        image_urls: referenceImageUrls,
+        is_pg_mode: isVideo ? false : PGModeManager.isActive,
+        media_type: isVideo ? "video" : "image",
+        video_duration: isVideo ? Number(els.videoDuration.value || 5) : 5,
+        video_resolution: isVideo ? els.videoResolution.value : "720P"
       };
 
       addPromptToHistory(prompt);
@@ -1889,7 +2005,8 @@
           group.done = Number.isFinite(event.done) ? event.done : group.images.length;
           group.total = event.total || group.total;
         }
-        appendRunLog(runId, `批量生成结束，成功 ${event.done}/${event.total} 张。`);
+        const unit = group?.mediaType === "video" ? "个视频" : "张";
+        appendRunLog(runId, `批量生成结束，成功 ${event.done}/${event.total} ${unit}。`);
         setGroupStatus(group, "completed");
         activeTasks.get(taskId)?.source?.close();
         activeTasks.delete(taskId);

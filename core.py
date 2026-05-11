@@ -27,6 +27,7 @@ except ImportError:
 DEFAULT_BASE_URL = "https://value.apiqik.online"
 DEFAULT_IMAGE_API_BASE = "https://img.apiqik.online"
 DEFAULT_MODEL = "gpt-image-2-flatfee"
+VIDEO_MODELS = {"happyhorse-1.0-t2v", "happyhorse-1.0-i2v"}
 SUPPORTED_RATIOS = {
     "1:1",
     "2:3",
@@ -156,6 +157,35 @@ def build_image_request(
         "apiKey": api_key,
         "payload": payload,
     }
+
+
+def build_video_request(
+    *,
+    model: str,
+    prompt: str,
+    image_urls: list[str],
+    duration: int = 5,
+    resolution: str = "720P",
+    size: str | None = None,
+) -> dict[str, Any]:
+    """Build the /v1/videos request body for HappyHorse video models."""
+    images = [url for url in image_urls if url]
+    if model == "happyhorse-1.0-i2v" and not images:
+        raise ValueError("happyhorse-1.0-i2v 需要至少 1 张参考图")
+
+    payload: dict[str, Any] = {
+        "model": model,
+        "prompt": prompt.strip(),
+        "duration": duration,
+        "metadata": {
+            "resolution": resolution,
+        },
+    }
+    if images:
+        payload["image"] = images[0]
+    if size:
+        payload["size"] = size
+    return payload
 
 
 def extract_url_from_markdown(text: str) -> str | None:
@@ -319,6 +349,88 @@ def generate_image(
         raise RuntimeError(f"API request failed with HTTP {error.code}: {detail}") from error
     except URLError as error:
         raise RuntimeError(f"API request failed: {error.reason}") from error
+
+
+def request_json(
+    url: str,
+    *,
+    api_key: str,
+    payload: dict[str, Any] | None = None,
+    method: str = "GET",
+    timeout: int = 600,
+) -> dict[str, Any]:
+    body = None if payload is None else json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    request = Request(
+        url,
+        data=body,
+        headers={
+            "Authorization": api_key,
+            "Content-Type": "application/json",
+        },
+        method=method,
+    )
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"API request failed with HTTP {error.code}: {detail}") from error
+    except URLError as error:
+        raise RuntimeError(f"API request failed: {error.reason}") from error
+
+
+def generate_video(
+    *,
+    api_key: str,
+    prompt: str,
+    model: str,
+    image_urls: list[str],
+    base_url: str = DEFAULT_BASE_URL,
+    duration: int = 5,
+    resolution: str = "720P",
+    size: str | None = None,
+    timeout: int = 1800,
+    poll_interval: int = 5,
+    on_poll: Callable[[dict[str, Any]], None] | None = None,
+) -> dict[str, Any]:
+    """Create a video task, poll it until completion, and return the final response."""
+    endpoint = f"{base_url.rstrip('/')}/v1/videos"
+    payload = build_video_request(
+        model=model,
+        prompt=prompt,
+        image_urls=image_urls,
+        duration=duration,
+        resolution=resolution,
+        size=size,
+    )
+    response = request_json(endpoint, api_key=api_key, payload=payload, method="POST", timeout=timeout)
+    task_id = response.get("task_id") or response.get("id")
+    if not isinstance(task_id, str) or not task_id:
+        raise RuntimeError(f"Video task response missing task_id. Full response: {_response_json_for_diagnostics(response)}")
+
+    if on_poll:
+        on_poll(response)
+
+    deadline = time.time() + timeout
+    last_response = response
+    while time.time() < deadline:
+        status = str(last_response.get("status") or "").lower()
+        if status == "completed":
+            return last_response
+        if status in {"failed", "cancelled", "canceled", "error"}:
+            raise RuntimeError(f"Video task failed: {_response_json_for_diagnostics(last_response)}")
+
+        time.sleep(max(1, poll_interval))
+        last_response = request_json(
+            f"{endpoint}/{task_id}",
+            api_key=api_key,
+            method="GET",
+            timeout=timeout,
+        )
+        if on_poll:
+            on_poll(last_response)
+
+    raise RuntimeError(f"Video task timed out after {timeout}s: {task_id}")
 
 
 def login_to_apiqik(username, password, base_url=DEFAULT_BASE_URL):
@@ -652,6 +764,61 @@ def describe_image_references(response: dict[str, Any]) -> list[dict[str, Any]]:
         _collect_image_refs_from_value(messages, refs, seen)
 
     return refs
+
+
+def describe_video_references(response: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return video file URLs from a video task response."""
+    refs: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+
+    def visit(value: Any) -> None:
+        if isinstance(value, str):
+            if value.startswith(("http://", "https://")) and _looks_like_video_url(value):
+                _append_image_ref(refs, seen, "url", value)
+            return
+        if isinstance(value, list):
+            for item in value:
+                visit(item)
+            return
+        if not isinstance(value, dict):
+            return
+        for key in ("url", "video_url", "content_url", "download_url"):
+            url = value.get(key)
+            if isinstance(url, str) and url.startswith(("http://", "https://")):
+                _append_image_ref(refs, seen, "url", url)
+        for child in value.values():
+            visit(child)
+
+    visit(response.get("metadata"))
+    for key in ("url", "video_url", "content_url", "download_url"):
+        value = response.get(key)
+        if isinstance(value, str) and value.startswith(("http://", "https://")):
+            _append_image_ref(refs, seen, "url", value)
+    if not refs:
+        visit(response)
+    return refs
+
+
+def save_video_result(
+    response: dict[str, Any],
+    output_path: Path,
+    *,
+    on_download_attempt: Callable[[int, int, str, Exception | None], None] | None = None,
+) -> list[Path]:
+    refs = describe_video_references(response)
+    if not refs:
+        raise ValueError(f"No videos found in response. Full response: {_response_json_for_diagnostics(response)}")
+
+    saved_paths = []
+    for i, ref in enumerate(refs):
+        current_path = _get_indexed_path(output_path, i + 1 if len(refs) > 1 else 0)
+        saved_paths.append(_download_and_save(ref["value"], current_path, on_attempt=on_download_attempt))
+    return saved_paths
+
+
+def _looks_like_video_url(value: str) -> bool:
+    clean = value.split("?", 1)[0].lower()
+    return clean.endswith((".mp4", ".webm", ".mov", ".m4v"))
 
 
 def _save_base64_image(value: str, output_path: Path) -> Path:

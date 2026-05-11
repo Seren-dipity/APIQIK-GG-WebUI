@@ -34,6 +34,7 @@ STATIC_DIR = Path("./static").absolute()
 # 每个 Space 实例最多保留的 session 数量，超出时清理最旧的
 _MAX_SESSIONS = 200
 _SESSION_ID_RE = re.compile(r'^[0-9a-f-]{36}$')
+_VIDEO_SIZE_RATIOS = {"1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9"}
 
 # 任务状态存储：task_id -> {"status": ..., "queue": asyncio.Queue, "total": int, "done": int}
 _tasks: dict[str, dict[str, Any]] = {}
@@ -61,6 +62,9 @@ class GenerateRequest(BaseModel):
     concurrency: int = 1
     image_urls: list[str] = Field(default_factory=list)
     is_pg_mode: bool = False
+    media_type: str = "image"
+    video_duration: int = 5
+    video_resolution: str = "720P"
 
 
 class ImageHostDeleteRequest(BaseModel):
@@ -441,6 +445,20 @@ async def generate(req: GenerateRequest):
         raise HTTPException(status_code=400, detail="concurrency 范围 1~50")
     if not _SESSION_ID_RE.match(req.session_id):
         raise HTTPException(status_code=400, detail="session_id 格式不合法")
+    if _is_video_request(req):
+        req.media_type = "video"
+        if req.model not in api_core.VIDEO_MODELS:
+            raise HTTPException(status_code=400, detail="当前仅支持已配置的视频模型")
+        if req.model == "happyhorse-1.0-i2v" and not req.image_urls:
+            req.model = "happyhorse-1.0-t2v"
+        if req.video_duration < 1 or req.video_duration > 30:
+            raise HTTPException(status_code=400, detail="视频时长范围 1~30 秒")
+        if req.video_resolution not in {"720P", "1080P"}:
+            raise HTTPException(status_code=400, detail="视频分辨率仅支持 720P 或 1080P")
+        video_size = _video_size_for_request(req)
+        if video_size and video_size not in _VIDEO_SIZE_RATIOS:
+            raise HTTPException(status_code=400, detail="视频比例仅支持 auto、1:1、2:3、3:2、3:4、4:3、9:16、16:9")
+        req.is_pg_mode = False
 
     _ensure_session_dir(req.session_id)
     req.api_key = api_keys[0]
@@ -575,22 +593,26 @@ async def _run_batch(task_id: str, req: GenerateRequest):
         clean = "".join(c if c.isalnum() else "_" for c in req.prompt[:30])
         ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
         base_name = f"{clean}_{ts}_{idx + 1}"
+        is_video = _is_video_request(req)
 
-        # 根据 output_format 决定后缀
-        ext = req.output_format.lower() if req.output_format else "png"
-        if ext not in ["png", "jpeg", "webp", "jpg"]:
-            ext = "png"
+        if is_video:
+            ext = "mp4"
+        else:
+            ext = req.output_format.lower() if req.output_format else "png"
+            if ext not in ["png", "jpeg", "webp", "jpg"]:
+                ext = "png"
 
         output_path = session_output_dir / f"{base_name}.{ext}"
 
         # 防止极低概率的文件名冲突
         counter = 1
         while output_path.exists():
-            output_path = OUTPUT_DIR / f"{base_name}({counter}).png"
+            output_path = session_output_dir / f"{base_name}({counter}).{ext}"
             counter += 1
 
         try:
-            _log(f"任务 {idx + 1} 使用 Key {key_number}({key_tail}) 发起生成请求。")
+            media_label = "视频" if is_video else "图片"
+            _log(f"任务 {idx + 1} 使用 Key {key_number}({key_tail}) 发起{media_label}生成请求。")
             append_attempt_audit(
                 session_id=req.session_id,
                 run_id=task_id,
@@ -601,21 +623,42 @@ async def _run_batch(task_id: str, req: GenerateRequest):
                 result="started",
             )
             try:
-                response = api_core.generate_image(
-                    api_key=api_key,
-                    prompt=req.prompt,
-                    model=req.model,
-                    size=req.size,
-                    ratio=req.ratio,
-                    quality=req.quality,
-                    output_format=req.output_format,
-                    image_urls=req.image_urls,
-                    base_url=req.base_url or api_core.DEFAULT_BASE_URL,
-                    timeout=300,
-                    n=1,
-                    is_pg_mode=req.is_pg_mode,
-                    pg_cookie=_pg_session_cookies.get(req.session_id)
-                )
+                if is_video:
+                    def _video_poll_log(poll_response: dict[str, Any]):
+                        status = poll_response.get("status", "unknown")
+                        progress = poll_response.get("progress")
+                        task_ref = poll_response.get("task_id") or poll_response.get("id") or ""
+                        progress_label = f"，进度 {progress}%" if progress is not None else ""
+                        _log(f"任务 {idx + 1} 视频任务 {task_ref} 状态 {status}{progress_label}。")
+
+                    response = api_core.generate_video(
+                        api_key=api_key,
+                        prompt=req.prompt,
+                        model=req.model,
+                        image_urls=req.image_urls,
+                        base_url=req.base_url or api_core.DEFAULT_BASE_URL,
+                        duration=req.video_duration,
+                        resolution=req.video_resolution,
+                        size=_video_size_for_request(req),
+                        timeout=1800,
+                        on_poll=_video_poll_log,
+                    )
+                else:
+                    response = api_core.generate_image(
+                        api_key=api_key,
+                        prompt=req.prompt,
+                        model=req.model,
+                        size=req.size,
+                        ratio=req.ratio,
+                        quality=req.quality,
+                        output_format=req.output_format,
+                        image_urls=req.image_urls,
+                        base_url=req.base_url or api_core.DEFAULT_BASE_URL,
+                        timeout=300,
+                        n=1,
+                        is_pg_mode=req.is_pg_mode,
+                        pg_cookie=_pg_session_cookies.get(req.session_id)
+                    )
             except Exception as e:
                 if req.is_pg_mode and _is_pg_cookie_expired_error(e):
                     _pg_session_cookies.pop(req.session_id, None)
@@ -641,22 +684,22 @@ async def _run_batch(task_id: str, req: GenerateRequest):
                 phase="response",
                 result="ok",
             )
-            _log(f"任务 {idx + 1} 生成接口已返回，开始解析图片结果。")
-            image_refs = api_core.describe_image_references(response)
-            if not image_refs:
-                _log(f"任务 {idx + 1} 生成接口成功，但响应中未找到图片。")
-            for ref in image_refs:
+            _log(f"任务 {idx + 1} 生成接口已返回，开始解析{media_label}结果。")
+            media_refs = api_core.describe_video_references(response) if is_video else api_core.describe_image_references(response)
+            if not media_refs:
+                _log(f"任务 {idx + 1} 生成接口成功，但响应中未找到{media_label}。")
+            for ref in media_refs:
                 ref_index = ref.get("index")
                 if ref.get("kind") == "url":
-                    _log(f"任务 {idx + 1} 已获取图片链接 #{ref_index}: {ref.get('value')}")
+                    _log(f"任务 {idx + 1} 已获取{media_label}链接 #{ref_index}: {ref.get('value')}")
                 elif ref.get("kind") == "base64":
                     _log(f"任务 {idx + 1} 已获取 base64 图片数据 #{ref_index}。")
 
             def _download_log(attempt: int, total: int, url: str, error: Exception | None = None):
                 if error is None:
-                    _log(f"任务 {idx + 1} 下载图片尝试 {attempt}/{total}: {url}")
+                    _log(f"任务 {idx + 1} 下载{media_label}尝试 {attempt}/{total}: {url}")
                 else:
-                    _log(f"任务 {idx + 1} 下载图片失败 {attempt}/{total}: {error}；URL: {url}")
+                    _log(f"任务 {idx + 1} 下载{media_label}失败 {attempt}/{total}: {error}；URL: {url}")
 
             content_text = ""
             choices = response.get("choices") or []
@@ -665,22 +708,29 @@ async def _run_batch(task_id: str, req: GenerateRequest):
                 if text:
                     content_text += text + "\n"
 
-            saved = api_core.save_generation_result(
-                response,
-                output_path,
-                on_download_attempt=_download_log,
-            )
+            if is_video:
+                saved = api_core.save_video_result(
+                    response,
+                    output_path,
+                    on_download_attempt=_download_log,
+                )
+            else:
+                saved = api_core.save_generation_result(
+                    response,
+                    output_path,
+                    on_download_attempt=_download_log,
+                )
             duration = time.time() - start
 
             for path in saved:
-                info = _result_image_info(path, req.session_id)
+                info = _result_media_info(path, req.session_id, media_type="video" if is_video else "image")
                 _log(
                     f"任务 {idx + 1} 保存成功: {path.name}，"
                     f"{info.get('size_label', '大小未知')}，{info.get('dimensions_label', '尺寸未知')}。"
                 )
 
             # 推送成功事件
-            image_infos = [_result_image_info(p, req.session_id) for p in saved]
+            image_infos = [_result_media_info(p, req.session_id, media_type="video" if is_video else "image") for p in saved]
             append_history_images(task_id, image_infos, req.session_id)
             _push({
                 "type": "result",
@@ -689,6 +739,7 @@ async def _run_batch(task_id: str, req: GenerateRequest):
                 "files": [p.name for p in saved],
                 "urls": [f"/output/{req.session_id}/{p.name}" for p in saved],
                 "images": image_infos,
+                "media_type": "video" if is_video else "image",
                 "content": content_text.strip(),
                 "duration": round(duration, 1),
             })
@@ -708,6 +759,7 @@ async def _run_batch(task_id: str, req: GenerateRequest):
     api_keys = _normalize_api_keys(req)
     pending_indices = list(range(req.concurrency))
     success_count = 0
+    unit_label = "个视频" if _is_video_request(req) else "张"
     _tasks[task_id]["done"] = 0
     _log(f"开始批量生成，总任务数: {req.concurrency}，模型: {req.model}，可用 Key: {len(api_keys)} 个")
 
@@ -717,7 +769,7 @@ async def _run_batch(task_id: str, req: GenerateRequest):
 
         round_indices = pending_indices
         pending_indices = []
-        _log(f"第 {key_index} 个 Key 开始生成，剩余 {len(round_indices)} 张。")
+        _log(f"第 {key_index} 个 Key 开始生成，剩余 {len(round_indices)} {unit_label}。")
 
         futures = []
         for idx in round_indices:
@@ -743,15 +795,26 @@ async def _run_batch(task_id: str, req: GenerateRequest):
 
         pending_indices.sort()
         if pending_indices:
-            _log(f"第 {key_index} 个 Key 完成，成功 {success_count} 张，仍剩 {len(pending_indices)} 张。")
+            _log(f"第 {key_index} 个 Key 完成，成功 {success_count} {unit_label}，仍剩 {len(pending_indices)} {unit_label}。")
 
     if pending_indices:
-        _log(f"所有 Key 都已尝试，仍有 {len(pending_indices)} 张未生成成功。")
+        _log(f"所有 Key 都已尝试，仍有 {len(pending_indices)} {unit_label}未生成成功。")
 
     _tasks[task_id]["status"] = "completed"
     set_history_status(task_id, "completed", done=success_count, session_id=req.session_id)
-    _log(f"批量生成结束，成功 {success_count}/{req.concurrency} 张。")
+    _log(f"批量生成结束，成功 {success_count}/{req.concurrency} {unit_label}。")
     queue.put_nowait({"type": "done", "run_id": task_id, "done": success_count, "total": req.concurrency})
+
+
+def _is_video_request(req: GenerateRequest) -> bool:
+    return req.media_type == "video" or req.model in api_core.VIDEO_MODELS
+
+
+def _video_size_for_request(req: GenerateRequest) -> str | None:
+    size = str(req.size or "").strip()
+    if not size or size.lower() == "auto":
+        return None
+    return size
 
 
 def _normalize_api_keys(req: GenerateRequest) -> list[str]:
@@ -857,6 +920,7 @@ def _with_history_image_meta(run: dict[str, Any], include_images: bool) -> dict[
     item["image_count"] = len(images)
     item["cover_image"] = images[0] if images else None
     item["images_loaded"] = include_images
+    item["media_type"] = run.get("media_type") or run.get("params", {}).get("media_type") or "image"
     if include_images:
         item["images"] = images
     else:
@@ -911,6 +975,7 @@ def create_history_run(run_id: str, req: GenerateRequest) -> dict[str, Any]:
         "status": "running",
         "prompt": req.prompt,
         "model": req.model,
+        "media_type": req.media_type,
         "params": params,
         "total": req.concurrency,
         "done": 0,
@@ -984,10 +1049,27 @@ def _delete_output_file(file_name: str | None, session_out: Path) -> None:
 
 
 def _result_image_info(path: Path, session_id: str) -> dict[str, Any]:
+    return _result_media_info(path, session_id, media_type="image")
+
+
+def _result_media_info(path: Path, session_id: str, *, media_type: str = "image") -> dict[str, Any]:
     info: dict[str, Any] = {
         "file": path.name,
         "url": f"/output/{session_id}/{path.name}",
+        "media_type": media_type,
     }
+    if media_type == "video":
+        try:
+            stat = path.stat()
+            info.update({
+                "bytes": stat.st_size,
+                "size_label": _format_bytes(stat.st_size),
+                "dimensions_label": "视频",
+            })
+        except OSError:
+            pass
+        return info
+
     candidates = [path]
     if not path.is_absolute():
         candidates.append(_session_dir(session_id) / path)
