@@ -968,6 +968,13 @@ def save_history(data: dict[str, Any], session_id: str) -> None:
 def create_history_run(run_id: str, req: GenerateRequest) -> dict[str, Any]:
     now = datetime.now().isoformat(timespec="seconds")
     params = req.model_dump(exclude={"api_key", "api_keys"})
+    original_image_urls = params.get("image_urls")
+    if isinstance(original_image_urls, list):
+        params["reference_image_count"] = len(original_image_urls)
+        params["image_urls"] = [
+            url for url in original_image_urls
+            if not (isinstance(url, str) and url.startswith("data:image/"))
+        ]
     run = {
         "run_id": run_id,
         "created_at": now,

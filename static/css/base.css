@@ -669,6 +669,10 @@
       transition: all 0.2s ease;
       margin-bottom: 0;
     }
+
+    .upload-provider label[hidden] {
+      display: none !important;
+    }
     
     .upload-provider input {
       position: absolute;

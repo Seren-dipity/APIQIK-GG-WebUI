@@ -225,7 +225,11 @@
                 style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
                 <div class="upload-provider" aria-label="本地上传图床" style="margin-bottom: 0;">
                   <label>
-                    <input id="uploadProviderPublic" type="radio" name="uploadProvider" value="public" checked />
+                    <input id="uploadProviderBase64" type="radio" name="uploadProvider" value="base64" checked />
+                    <span>Base64</span>
+                  </label>
+                  <label id="uploadProviderPublicOption" hidden>
+                    <input id="uploadProviderPublic" type="radio" name="uploadProvider" value="public" />
                     <span>公共存储</span>
                   </label>
                   <label>
@@ -240,6 +244,10 @@
                     <div class="pricing-section">
                       <div class="pricing-title">存储方式说明</div>
                       <div class="pricing-row" style="display: block; margin-bottom: 10px;">
+                        <strong style="display: block; margin-bottom: 4px; color: var(--ink);">Base64</strong>
+                        <span style="color: var(--ink-secondary); font-size: 11px;">不上传图床，直接把参考图随本次请求发送。适合少量图片，历史不会保存原始 Base64。</span>
+                      </div>
+                      <div class="pricing-row" style="display: block; margin-bottom: 10px;">
                         <strong style="display: block; margin-bottom: 4px; color: var(--ink);">公共存储</strong>
                         <span style="color: var(--ink-secondary); font-size: 11px;">使用服务端配置的默认存储。仅在 HuggingFace
                           部署环境中作为默认推荐。</span>
@@ -253,7 +261,7 @@
                   </div>
                 </div>
               </div>
-              <p id="uploadProviderHint" class="upload-provider-hint">使用服务器提供的公共存储，图片将上传至管理员配置的 R2 存储桶。</p>
+              <p id="uploadProviderHint" class="upload-provider-hint">使用 Base64 直传，图片不会上传图床，仅随本次请求发送。</p>
               <div id="dropzone" class="dropzone">
                 <div>
                   <strong>点击选择或拖拽图片到这里</strong>
@@ -661,6 +669,8 @@
       fileInput: document.getElementById("fileInput"),
       thumbs: document.getElementById("thumbs"),
       uploadStatus: document.getElementById("uploadStatus"),
+      uploadProviderBase64: document.getElementById("uploadProviderBase64"),
+      uploadProviderPublicOption: document.getElementById("uploadProviderPublicOption"),
       uploadProviderPublic: document.getElementById("uploadProviderPublic"),
       uploadProviderR2: document.getElementById("uploadProviderR2"),
       uploadProviderHint: document.getElementById("uploadProviderHint"),
@@ -1021,6 +1031,10 @@
       els.hfStorageNotice.classList.toggle("show", isHuggingFace && !dismissed);
     }
 
+    function isHuggingFaceRuntime() {
+      return window.SERVER_CONFIG?.is_huggingface === true;
+    }
+
     function setRunState(state, text) {
       els.runDot.className = `dot ${state || ""}`;
       els.runStatus.textContent = text;
@@ -1106,10 +1120,30 @@
     }
 
     function getUploadProvider() {
-      return els.uploadProviderR2?.checked ? "r2" : "public";
+      if (els.uploadProviderR2?.checked) return "r2";
+      if (els.uploadProviderPublic?.checked && isHuggingFaceRuntime()) return "public";
+      return "base64";
     }
 
-    function updateUploadProviderHint() { if (!els.uploadProviderHint) return; const isR2 = getUploadProvider() === "r2"; const text = isR2 ? "图片将上传至你在设置中配置的私有 R2 存储。" : "图片将独立存储在管理员配置的公共 R2 存储中。"; els.uploadProviderHint.innerHTML = `${text} <span class="btn-manage-link" onclick="openUploadGalleryModal()">[管理上传图片]</span>`; }
+    function updateUploadProviderAvailability() {
+      const showPublic = isHuggingFaceRuntime();
+      if (els.uploadProviderPublicOption) els.uploadProviderPublicOption.hidden = !showPublic;
+      if (!showPublic && els.uploadProviderPublic?.checked && els.uploadProviderBase64) {
+        els.uploadProviderBase64.checked = true;
+      }
+    }
+
+    function updateUploadProviderHint() {
+      if (!els.uploadProviderHint) return;
+      updateUploadProviderAvailability();
+      const provider = getUploadProvider();
+      if (provider === "base64") {
+        els.uploadProviderHint.textContent = "使用 Base64 直传，图片不会上传图床，仅随本次请求发送。";
+        return;
+      }
+      const text = provider === "r2" ? "图片将上传至你在设置中配置的私有 R2 存储。" : "图片将独立存储在管理员配置的公共 R2 存储中。";
+      els.uploadProviderHint.innerHTML = `${text} <span class="btn-manage-link" onclick="openUploadGalleryModal()">[管理上传图片]</span>`;
+    }
 
 
     function getProxiedUrl(item) {
@@ -1120,6 +1154,20 @@
 
     function getImageUrls() {
       return uploadedImages.map(item => item.url);
+    }
+
+    function getPayloadReferenceCount(payload) {
+      const urls = Array.isArray(payload?.image_urls) ? payload.image_urls : [];
+      return urls.length || Number(payload?.reference_image_count || 0);
+    }
+
+    function readFileAsDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = () => reject(new Error("图片读取失败"));
+        reader.readAsDataURL(file);
+      });
     }
 
     function readImageHashCache() {
@@ -1195,6 +1243,12 @@
     async function uploadFiles(files) {
       const provider = getUploadProvider();
       const r2 = provider === "r2" ? getR2Config() : null;
+      if (provider === "public" && !isHuggingFaceRuntime()) {
+        logSystem("公共存储仅在 Hugging Face 环境显示和使用，已切回 Base64。");
+        if (els.uploadProviderBase64) els.uploadProviderBase64.checked = true;
+        updateUploadProviderHint();
+        return;
+      }
       if (provider === "r2" && !r2) {
         alert("未配置私有 Cloudflare R2，无法使用该选项。\n请在设置页进行配置，或切换至「公共存储」使用服务端默认图床。");
         logSystem("Cloudflare R2 配置不完整，无法上传参考图。");
@@ -1225,6 +1279,23 @@
         if (existing) {
           URL.revokeObjectURL(preview);
           logSystem(`参考图已在当前任务中: ${file.name}`);
+          els.uploadStatus.textContent = `上传中 ${i + 1}/${list.length}`;
+          continue;
+        }
+
+        if (provider === "base64") {
+          try {
+            const dataUrl = await readFileAsDataUrl(file);
+            if (!dataUrl.startsWith("data:image/")) throw new Error("仅支持图片文件");
+            const entry = { url: dataUrl, name: file.name, preview, hash, cached: false, provider, dimensions: "" };
+            uploadedImages.push(entry);
+            logSystem(`参考图已转为 Base64: ${file.name}`);
+            renderThumbs();
+            getImageDimensions(preview).then(dims => { entry.dimensions = dims; renderThumbs(); });
+          } catch (error) {
+            URL.revokeObjectURL(preview);
+            logSystem(`参考图读取失败: ${file.name} ${error.message}`);
+          }
           els.uploadStatus.textContent = `上传中 ${i + 1}/${list.length}`;
           continue;
         }
@@ -1297,7 +1368,8 @@
     }
 
     function summarizePayload(payload) {
-      const refs = payload.image_urls?.length ? `${payload.image_urls.length} 张参考图` : "纯生图";
+      const refCount = getPayloadReferenceCount(payload);
+      const refs = refCount ? `${refCount} 张参考图` : "纯生图";
       if (payload.media_type === "video") {
         return [
           `${payload.video_duration || 5} 秒`,
@@ -1752,9 +1824,12 @@
         });
       } else {
         uploadedImages = [];
-        if (els.uploadProviderPublic) els.uploadProviderPublic.checked = true;
+        if (els.uploadProviderBase64) els.uploadProviderBase64.checked = true;
         updateUploadProviderHint();
         renderThumbs();
+        if (params.reference_image_count) {
+          logSystem("该历史任务使用了 Base64 参考图；为避免历史变大，参考图原文未保存，请重新选择本地图片。");
+        }
       }
 
       logSystem("已复用任务参数。");
@@ -1898,6 +1973,11 @@
 
       const referenceImageUrls = getImageUrls();
       const submitModel = model === "happyhorse-1.0-i2v" && !referenceImageUrls.length ? "happyhorse-1.0-t2v" : model;
+      if (isVideo && referenceImageUrls.some(url => String(url || "").startsWith("data:image/"))) {
+        logSystem("视频参考图暂不使用 Base64 直传，请切换为公共存储或私有存储后重新上传。");
+        setRunState("", "待开始");
+        return;
+      }
       if (isVideo) {
         finalSize = els.videoSize.value || "";
         finalRatio = "";
@@ -2017,9 +2097,10 @@
     function bindUpload() {
       els.dropzone.addEventListener("click", () => els.fileInput.click());
       els.fileInput.addEventListener("change", () => uploadFiles(els.fileInput.files));
-      [els.uploadProviderPublic, els.uploadProviderR2].forEach(input => {
+      [els.uploadProviderBase64, els.uploadProviderPublic, els.uploadProviderR2].forEach(input => {
         if (input) input.addEventListener("change", updateUploadProviderHint);
       });
+      updateUploadProviderAvailability();
       updateUploadProviderHint();
 
       ["dragenter", "dragover"].forEach(name => {

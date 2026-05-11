@@ -377,33 +377,30 @@
         modal.classList.remove('show');
     };
 
-    // 4. 环境感知：隐藏未配置的公共存储入口
+    // 4. 环境感知：按运行环境和当前模式更新入口与提示
     const updateGalleryUIByEnvironment = () => {
         const config = window.SERVER_CONFIG || {};
-        const isPublicMode = getUploadProvider() === "public";
         const hintEl = document.getElementById('uploadProviderHint');
         const publicTab = document.getElementById('uploadProviderPublic')?.parentElement;
+        const isHuggingFace = config.is_huggingface === true;
 
-        // 不再隐藏公共存储，由用户自行决定
-        // 但如果未配置，依然需要给出状态切换逻辑 (可选)
-        if (!config.has_public_r2) {
-            if (isPublicMode && els.uploadProviderR2) {
-                // 不强制切换，除非当前完全不可用
-            }
+        if (publicTab) publicTab.hidden = !isHuggingFace;
+        if (!isHuggingFace && document.getElementById('uploadProviderPublic')?.checked) {
+            const base64Input = document.getElementById('uploadProviderBase64');
+            if (base64Input) base64Input.checked = true;
         }
 
         // 统一更新提示语逻辑
         if (hintEl) {
             const currentProvider = getUploadProvider();
-            const isR2 = currentProvider === "r2";
-
-            // 如果是公共模式但服务器没配置，显示错误提示
-            if (!isR2 && !config.has_public_r2) {
+            if (currentProvider === "base64") {
+                hintEl.textContent = "使用 Base64 直传，图片不会上传图床，仅随本次请求发送。";
+            } else if (currentProvider === "r2") {
+                hintEl.innerHTML = `图片将上传至你在设置中配置的私有 R2 存储。 <span class="btn-manage-link" onclick="openUploadGalleryModal(false)">[管理上传图片]</span>`;
+            } else if (!config.has_public_r2) {
                 hintEl.innerHTML = `<span style="color:var(--error);">服务器未配置公共 R2 存储。</span> <span class="btn-manage-link" onclick="openUploadGalleryModal(true)">[管理公共存储]</span>`;
             } else {
-                const text = isR2 ? "图片将上传至你在设置中配置的私有 R2 存储。" : "图片将独立存储在管理员配置的公共 R2 存储中。";
-                const modeParam = isR2 ? "false" : "true";
-                hintEl.innerHTML = `${text} <span class="btn-manage-link" onclick="openUploadGalleryModal(${modeParam})">[管理上传图片]</span>`;
+                hintEl.innerHTML = `图片将独立存储在管理员配置的公共 R2 存储中。 <span class="btn-manage-link" onclick="openUploadGalleryModal(true)">[管理上传图片]</span>`;
             }
         }
     };
