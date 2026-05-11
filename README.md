@@ -179,14 +179,18 @@ GET /api/tasks/{task_id}/stream
 
 ## 参考图上传
 
-`POST /api/upload-image` 接收 multipart 文件，并上传到 Cloudflare R2。
+主页面“本地上传”支持三种参考图传递方式：
+
+- `Base64`：默认模式。本地图片会在浏览器中转成 `data:image/...;base64,...`，直接随本次生成请求发送，不上传到图床。适合少量参考图；为避免历史文件膨胀，后端保存历史时会从 `params.image_urls` 中移除完整 Base64，只保留 `reference_image_count`。
+- `公共存储`：只在 Hugging Face 环境显示。文件通过 `POST /api/upload-image` 上传到服务端配置的公共 Cloudflare R2，适合云端部署时保留参考图。
+- `私有存储`：使用用户在设置页保存到浏览器 `localStorage` 的 Cloudflare R2 配置，文件同样通过 `POST /api/upload-image` 上传。
 
 R2 配置来源：
 
 - 前端传入 `cf_access_key` 等字段：私有 R2。
-- 服务端环境变量：公共 R2。
+- 服务端环境变量：公共 R2，仅 Hugging Face 环境在 UI 中显示入口。
 
-上传成功后，如果 `session_id` 合法，会写入当前 session 的上传索引：
+R2 上传成功后，如果 `session_id` 合法，会写入当前 session 的上传索引：
 
 ```text
 output/{session_id}/uploads.json
@@ -204,6 +208,8 @@ apiqik_indexes/{session_id}/uploads.json
 - `GET /api/uploads?session_id=...&is_public=true|false`
 - `POST /api/delete-upload`
 - `POST /api/delete-all-uploads`
+
+`Base64` 模式已验证可用于图片参考图和 HappyHorse 视频参考图。多张大图会显著放大浏览器内存和请求体体积，批量参考图或长期保留素材时仍建议使用 R2 存储。
 
 ## 历史记录和输出目录
 

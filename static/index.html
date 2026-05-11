@@ -1973,11 +1973,6 @@
 
       const referenceImageUrls = getImageUrls();
       const submitModel = model === "happyhorse-1.0-i2v" && !referenceImageUrls.length ? "happyhorse-1.0-t2v" : model;
-      if (isVideo && referenceImageUrls.some(url => String(url || "").startsWith("data:image/"))) {
-        logSystem("视频参考图暂不使用 Base64 直传，请切换为公共存储或私有存储后重新上传。");
-        setRunState("", "待开始");
-        return;
-      }
       if (isVideo) {
         finalSize = els.videoSize.value || "";
         finalRatio = "";
