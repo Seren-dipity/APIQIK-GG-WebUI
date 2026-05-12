@@ -51,6 +51,7 @@ _history_lock = threading.RLock()
 class GenerateRequest(BaseModel):
     api_key: str = ""
     api_keys: list[str] = Field(default_factory=list)
+    api_key_labels: list[str] = Field(default_factory=list)
     prompt: str
     session_id: str
     model: str = api_core.DEFAULT_MODEL
@@ -586,7 +587,7 @@ async def _run_batch(task_id: str, req: GenerateRequest):
     def _log(message: str):
         _push({"type": "log", "message": message, "time": _now()})
 
-    def _worker(idx: int, api_key: str, key_number: int) -> dict:
+    def _worker(idx: int, api_key: str, key_number: int, key_label: str) -> dict:
         """单次生成任务，在线程池中运行。"""
         start = time.time()
         key_tail = _key_tail(api_key)
@@ -612,7 +613,7 @@ async def _run_batch(task_id: str, req: GenerateRequest):
 
         try:
             media_label = "视频" if is_video else "图片"
-            _log(f"任务 {idx + 1} 使用 Key {key_number}({key_tail}) 发起{media_label}生成请求。")
+            _log(f"任务 {idx + 1} 使用 {key_label}({key_tail}) 发起{media_label}生成请求。")
             append_attempt_audit(
                 session_id=req.session_id,
                 run_id=task_id,
@@ -751,7 +752,7 @@ async def _run_batch(task_id: str, req: GenerateRequest):
                 "type": "error",
                 "run_id": task_id,
                 "idx": idx + 1,
-                "message": f"Key {key_number} 生成失败: {e}",
+                "message": f"{key_label} 生成失败: {e}",
                 "duration": round(duration, 1),
             })
             return {"success": False, "idx": idx, "key_number": key_number, "error": str(e)}
@@ -769,11 +770,12 @@ async def _run_batch(task_id: str, req: GenerateRequest):
 
         round_indices = pending_indices
         pending_indices = []
-        _log(f"第 {key_index} 个 Key 开始生成，剩余 {len(round_indices)} {unit_label}。")
+        key_label = _key_label(req, key_index)
+        _log(f"{key_label} 开始生成，剩余 {len(round_indices)} {unit_label}。")
 
         futures = []
         for idx in round_indices:
-            future = loop.run_in_executor(_executor, _worker, idx, api_key, key_index)
+            future = loop.run_in_executor(_executor, _worker, idx, api_key, key_index, key_label)
             futures.append(future)
             # 错开启动间隔，避免瞬时请求风暴
             await asyncio.sleep(0.3)
@@ -829,6 +831,14 @@ def _normalize_api_keys(req: GenerateRequest) -> list[str]:
 def _key_tail(api_key: str) -> str:
     normalized = str(api_key or "").strip()
     return normalized[-4:] if len(normalized) >= 4 else normalized or "none"
+
+
+def _key_label(req: GenerateRequest, key_number: int) -> str:
+    if 0 < key_number <= len(req.api_key_labels):
+        label = str(req.api_key_labels[key_number - 1] or "").strip()
+        if label:
+            return label
+    return f"Key {key_number}"
 
 
 def attempt_audit_file(session_id: str) -> Path:

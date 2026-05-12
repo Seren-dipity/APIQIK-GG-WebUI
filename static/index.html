@@ -94,7 +94,7 @@
     </header>
 
     <div id="keyNotice" class="notice">
-      <span>缺少 APIQIK Key，请先在设置页保存密钥。</span>
+      <span>缺少或未启用 APIQIK Key，请先在设置页保存密钥，并在首页选择要启用的 Key。</span>
       <a class="btn btn-warn" href="/settings">去设置</a>
     </div>
 
@@ -107,6 +107,9 @@
       <div class="main-grid">
         <div class="panel input-panel">
           <section class="section prompt-area">
+            <div class="section-title prompt-section-title">
+              <h2>提示词与提交</h2>
+            </div>
             <div class="prompt-toolbar">
               <div class="command-settings">
                 <div class="command-field command-field--model">
@@ -141,6 +144,23 @@
                       <option value="happyhorse-1.0-i2v">happyhorse-1.0-i2v</option>
                     </optgroup>
                   </select>
+                </div>
+
+                <div class="command-field command-field--keys">
+                  <label for="keySelectorBtn">Key</label>
+                  <div class="key-selector">
+                    <button id="keySelectorBtn" class="key-selector-btn" type="button" aria-haspopup="true"
+                      aria-expanded="false" aria-controls="keySelectorPopover">Key 0/0</button>
+                    <div id="keySelectorPopover" class="key-selector-popover" hidden>
+                      <div class="key-selector-list" id="keySelectorList"></div>
+                      <div class="key-selector-hint">可多选；生成失败时会按列表顺序依次尝试一次。</div>
+                      <div class="key-selector-actions">
+                        <button id="selectAllKeysBtn" type="button">全选</button>
+                        <button id="clearKeysBtn" type="button">清空</button>
+                        <a href="/settings">管理 Key</a>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 <div class="command-field command-field--concurrency">
@@ -630,6 +650,11 @@
 
     const els = {
       model: document.getElementById("model"),
+      keySelectorBtn: document.getElementById("keySelectorBtn"),
+      keySelectorPopover: document.getElementById("keySelectorPopover"),
+      keySelectorList: document.getElementById("keySelectorList"),
+      selectAllKeysBtn: document.getElementById("selectAllKeysBtn"),
+      clearKeysBtn: document.getElementById("clearKeysBtn"),
       ratioField: document.getElementById("ratioField"),
       ratioGrid: document.getElementById("ratioGrid"),
       sizeField: document.getElementById("sizeField"),
@@ -706,6 +731,8 @@
     let uploadedImages = [];
     const imageHashCacheKey = "apiqik_image_hash_cache";
     const historyLoadLimitKey = "apiqik_history_load_limit";
+    const apiKeyPoolStorageKey = "apiqik_key_pool";
+    const activeApiKeyIdsStorageKey = "apiqik_active_key_ids";
     const maxHistoryLoadLimit = 10000;
     const defaultHistoryLoadLimit = maxHistoryLoadLimit;
     const hfStorageNoticeKey = "apiqik_hf_storage_notice_dismissed";
@@ -1011,6 +1038,7 @@
 
     function updateKeyState() {
       localStorage.removeItem("apiqik_vip_key");
+      const pool = getApiKeyPool();
       const apiKeys = getApiKeys();
       const r2 = getR2Config();
       const hasKey = apiKeys.length > 0;
@@ -1018,11 +1046,14 @@
 
       els.keyDot.className = `dot ${hasKey ? "ok" : "bad"}`;
 
-      let label = hasKey ? `已配置 ${apiKeys.length} 个Key` : "未配置";
+      let label = pool.length
+        ? `启用 ${apiKeys.length}/${pool.length} 个Key`
+        : "未配置";
       if (hasKey && !hasR2) label += " (R2未配置)";
 
       els.keyLabel.textContent = label;
       els.keyNotice.classList.toggle("show", !hasKey);
+      renderKeySelector();
     }
 
     function updateHfStorageNotice() {
@@ -1103,7 +1134,11 @@
       return keys.every(key => config[key]) ? config : null;
     }
 
-    function getApiKeys() {
+    function defaultKeyLabel(index) {
+      return `KEY-${index + 1}`;
+    }
+
+    function parseLegacyApiKeys() {
       const keys = [];
       const primary = localStorage.getItem("apiqik_key") || "";
       let stored = [];
@@ -1117,6 +1152,131 @@
         if (normalized && !keys.includes(normalized)) keys.push(normalized);
       });
       return keys;
+    }
+
+    function normalizeApiKeyPool(pool) {
+      const seen = new Set();
+      const normalized = [];
+      (Array.isArray(pool) ? pool : []).forEach((item, index) => {
+        const key = String(item?.key || "").trim();
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        normalized.push({
+          id: String(item?.id || `legacy_key_${index + 1}`),
+          label: String(item?.label || "").trim() || defaultKeyLabel(index),
+          key
+        });
+      });
+      return normalized;
+    }
+
+    function getApiKeyPool() {
+      let pool = [];
+      try {
+        pool = JSON.parse(localStorage.getItem(apiKeyPoolStorageKey) || "[]");
+      } catch (error) {
+        pool = [];
+      }
+      const normalized = normalizeApiKeyPool(pool);
+      if (normalized.length) return normalized;
+      return parseLegacyApiKeys().map((key, index) => ({
+        id: `legacy_key_${index + 1}`,
+        label: defaultKeyLabel(index),
+        key
+      }));
+    }
+
+    function getStoredActiveKeyIds() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(activeApiKeyIdsStorageKey) || "null");
+        return Array.isArray(parsed) ? parsed.map(id => String(id)) : null;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function getActiveKeyIds(pool = getApiKeyPool()) {
+      const stored = getStoredActiveKeyIds();
+      if (stored === null) return pool.map(item => item.id);
+      const validIds = new Set(pool.map(item => item.id));
+      return stored.filter(id => validIds.has(id));
+    }
+
+    function setActiveKeyIds(ids) {
+      localStorage.setItem(activeApiKeyIdsStorageKey, JSON.stringify(ids));
+      renderKeySelector();
+      updateKeyState();
+    }
+
+    function getActiveApiKeyItems() {
+      const pool = getApiKeyPool();
+      const activeIds = new Set(getActiveKeyIds(pool));
+      return pool.filter(item => activeIds.has(item.id));
+    }
+
+    function getApiKeys() {
+      return getActiveApiKeyItems().map(item => item.key);
+    }
+
+    function getApiKeyLabels() {
+      return getActiveApiKeyItems().map(item => item.label);
+    }
+
+    function renderKeySelector() {
+      const pool = getApiKeyPool();
+      const activeIds = new Set(getActiveKeyIds(pool));
+      const activeCount = pool.filter(item => activeIds.has(item.id)).length;
+
+      if (els.keySelectorBtn) {
+        els.keySelectorBtn.textContent = pool.length ? `Key ${activeCount}/${pool.length}` : "Key 0/0";
+      }
+      if (!els.keySelectorList) return;
+
+      if (!pool.length) {
+        els.keySelectorList.innerHTML = '<div class="key-selector-empty">未配置 Key</div>';
+        return;
+      }
+
+      els.keySelectorList.innerHTML = pool.map(item => `
+        <label class="key-selector-option" title="${escapeHtml(item.label)}">
+          <input type="checkbox" value="${escapeHtml(item.id)}" ${activeIds.has(item.id) ? "checked" : ""}>
+          <span>${escapeHtml(item.label)}</span>
+        </label>
+      `).join("");
+
+      els.keySelectorList.querySelectorAll('input[type="checkbox"]').forEach(input => {
+        input.addEventListener("change", () => {
+          const selected = Array.from(els.keySelectorList.querySelectorAll('input[type="checkbox"]:checked')).map(item => item.value);
+          setActiveKeyIds(selected);
+        });
+      });
+    }
+
+    function setKeySelectorOpen(open) {
+      if (!els.keySelectorBtn || !els.keySelectorPopover) return;
+      els.keySelectorPopover.hidden = !open;
+      els.keySelectorBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+
+    function bindKeySelector() {
+      renderKeySelector();
+      els.keySelectorBtn?.addEventListener("click", event => {
+        event.stopPropagation();
+        setKeySelectorOpen(els.keySelectorPopover?.hidden ?? true);
+      });
+      els.keySelectorPopover?.addEventListener("click", event => event.stopPropagation());
+      els.selectAllKeysBtn?.addEventListener("click", () => {
+        const pool = getApiKeyPool();
+        setActiveKeyIds(pool.map(item => item.id));
+      });
+      els.clearKeysBtn?.addEventListener("click", () => setActiveKeyIds([]));
+      document.addEventListener("click", () => setKeySelectorOpen(false));
+      window.addEventListener("storage", event => {
+        if ([apiKeyPoolStorageKey, activeApiKeyIdsStorageKey, "apiqik_key", "apiqik_keys"].includes(event.key)) {
+          renderKeySelector();
+          updateKeyState();
+        }
+      });
     }
 
     function getUploadProvider() {
@@ -1921,6 +2081,7 @@
       const isVideo = isVideoModel(model);
       localStorage.removeItem("apiqik_vip_key");
       const apiKeys = getApiKeys();
+      const apiKeyLabels = getApiKeyLabels();
       const apiKey = apiKeys[0] || "";
       const apiKeyCount = apiKeys.length;
       const prompt = els.prompt.value.trim();
@@ -1928,7 +2089,7 @@
 
       if (!apiKey) {
         updateKeyState();
-        logSystem("请先配置 APIQIK Key。");
+        logSystem("请至少启用一个 APIQIK Key。");
         return;
       }
       if (!prompt) {
@@ -1945,7 +2106,7 @@
       }
 
       setRunState("busy", "提交中");
-      if (apiKeyCount > 1) logSystem(`已配置 ${apiKeyCount} 个 Key，将按顺序轮换补齐失败任务。`);
+      if (apiKeyCount > 1) logSystem(`已启用 ${apiKeyCount} 个 Key，将按顺序轮换补齐失败任务。`);
 
       let finalSize = els.size.value;
       let finalRatio = els.ratioGrid.dataset.value || "1:1";
@@ -1981,6 +2142,7 @@
       const payload = {
         api_key: apiKey,
         api_keys: apiKeys,
+        api_key_labels: apiKeyLabels,
         base_url: localStorage.getItem("apiqik_base_url") || "https://value.apiqik.online",
         session_id: SESSION_ID,
         prompt,
@@ -2549,6 +2711,7 @@
       PGModeManager.init();
       initLinkedSizeControls();
       initModelPricingHelp();
+      bindKeySelector();
       updateKeyState();
       updateHfStorageNotice();
       bindUpload();

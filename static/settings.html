@@ -299,11 +299,10 @@
       gap: 14px;
     }
 
-    .api-key-primary-row {
-      position: relative;
-    }
-
     .api-key-row {
+      display: grid;
+      grid-template-columns: minmax(118px, 0.38fr) minmax(180px, 1fr);
+      gap: 10px;
       position: relative;
     }
 
@@ -312,7 +311,17 @@
       gap: 10px;
     }
 
-    .api-key-row input {
+    .api-key-note-input {
+      font-family: 'Inter', sans-serif !important;
+      padding-right: 14px !important;
+    }
+
+    .api-key-secret-wrap {
+      position: relative;
+      min-width: 0;
+    }
+
+    .api-key-secret-wrap input {
       padding-right: 82px;
     }
 
@@ -361,7 +370,7 @@
       color: rgba(148, 163, 184, 0.5);
     }
 
-    .field .api-key-row input {
+    .field .api-key-secret-wrap input {
       padding-right: 92px;
     }
 
@@ -390,13 +399,8 @@
       height: 18px;
     }
 
-    .api-key-primary-row .toggle-vis,
-    .api-key-row .toggle-vis {
+    .api-key-secret-wrap .toggle-vis {
       right: 50px;
-    }
-
-    .api-key-primary-row .toggle-vis {
-      right: 12px;
     }
 
     /* ── 操作按钮区 ── */
@@ -652,6 +656,11 @@
         font-size: 16px;
       }
 
+      .api-key-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+
       .toggle-vis {
         width: 36px;
         height: 36px;
@@ -659,7 +668,7 @@
         right: 8px;
       }
 
-      .api-key-row .toggle-vis {
+      .api-key-secret-wrap .toggle-vis {
         right: 44px;
       }
 
@@ -744,25 +753,16 @@
     <div class="field field--api-keys">
       <div class="api-key-head">
         <div>
-          <div class="field-label">API Key <span class="required">*</span></div>
+          <div class="field-label">API Key 池 <span class="required">*</span></div>
         </div>
         <button id="addApiKeyBtn" class="key-add-btn" type="button" title="添加备用 API Key">+</button>
-        <div class="field-hint">推荐使用Auto分组令牌，备用 Key 会在生成失败后按顺序轮换补齐</div>
+        <div class="field-hint">推荐使用Auto分组令牌；备注会显示在首页 Key 选择器中，留空会自动命名为 KEY-1、KEY-2</div>
         <div id="hfKeyTrustNotice" class="key-trust-notice">
           <strong>注意：</strong>这不是 APIQIK 官方平台，是个人开源项目。你在 Hugging Face Space 上生成时，Key 会经过 Hugging Face
           后台转发。源码公开可审计，当前代码不会持久保存或额外上报 Key；如果介意，请使用低额度临时 Key，或在本地运行 GitHub 源码版本。
         </div>
       </div>
       <div class="field-input-wrap api-key-stack">
-        <div class="api-key-primary-row">
-          <input id="apiqik_key" type="password" placeholder="sk-..." autocomplete="off" />
-          <button class="toggle-vis" data-target="apiqik_key" title="显示/隐藏">
-            <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-          </button>
-        </div>
         <div id="apiqikKeyList" class="api-key-list"></div>
       </div>
     </div>
@@ -895,10 +895,12 @@
   <div class="toast" id="toast"></div>
 
   <script>
-    const KEYS = ['apiqik_key', 'apiqik_keys', 'apiqik_base_url', 'apiqik_history_load_limit', 'cf_access_key', 'cf_secret_key', 'cf_account_id', 'cf_bucket', 'cf_public_url'];
+    const KEYS = ['apiqik_key', 'apiqik_keys', 'apiqik_key_pool', 'apiqik_active_key_ids', 'apiqik_base_url', 'apiqik_history_load_limit', 'cf_access_key', 'cf_secret_key', 'cf_account_id', 'cf_bucket', 'cf_public_url'];
     const CONFIG_KEYS = ['apiqik_base_url', 'cf_access_key', 'cf_secret_key', 'cf_account_id', 'cf_bucket', 'cf_public_url'];
     const LEGACY_KEYS = ['apiqik_vip_key'];
     const API_KEYS_STORAGE = 'apiqik_keys';
+    const API_KEY_POOL_STORAGE = 'apiqik_key_pool';
+    const ACTIVE_API_KEY_IDS_STORAGE = 'apiqik_active_key_ids';
     const HISTORY_LOAD_LIMIT_STORAGE = 'apiqik_history_load_limit';
     const MAX_HISTORY_LOAD_LIMIT = 10000;
     const DEFAULT_HISTORY_LOAD_LIMIT = MAX_HISTORY_LOAD_LIMIT;
@@ -912,7 +914,25 @@
       localStorage.setItem(HF_KEY_TRUST_NOTICE_STORAGE, isHuggingFace ? 'shown' : 'hidden');
     }
 
-    function parseStoredApiKeys() {
+    function createKeyId() {
+      if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+      return `key_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    }
+
+    function defaultKeyLabel(index) {
+      return `KEY-${index + 1}`;
+    }
+
+    function parseStoredActiveKeyIds() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(ACTIVE_API_KEY_IDS_STORAGE) || 'null');
+        return Array.isArray(parsed) ? parsed.map(id => String(id)) : null;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function parseLegacyApiKeys() {
       const keys = [];
       const primary = localStorage.getItem('apiqik_key') || '';
       let stored = [];
@@ -928,17 +948,60 @@
       return keys;
     }
 
-    function collectApiKeysFromForm() {
-      const keys = [];
-      const inputs = [document.getElementById('apiqik_key'), ...document.querySelectorAll('.backup-api-key-input')];
-      inputs.forEach(input => {
-        const normalized = (input?.value || '').trim();
-        if (normalized && !keys.includes(normalized)) keys.push(normalized);
+    function normalizeApiKeyPool(pool) {
+      const seen = new Set();
+      const normalized = [];
+      (Array.isArray(pool) ? pool : []).forEach((item, index) => {
+        const key = String(item?.key || '').trim();
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        normalized.push({
+          id: String(item?.id || createKeyId()),
+          label: String(item?.label || '').trim() || defaultKeyLabel(index),
+          key
+        });
       });
-      return keys;
+      return normalized.map((item, index) => ({
+        ...item,
+        label: item.label || defaultKeyLabel(index)
+      }));
     }
 
-    function saveApiKeys(keys) {
+    function parseStoredApiKeyPool() {
+      let pool = [];
+      try {
+        pool = JSON.parse(localStorage.getItem(API_KEY_POOL_STORAGE) || '[]');
+      } catch (error) {
+        pool = [];
+      }
+      const normalized = normalizeApiKeyPool(pool);
+      if (normalized.length) return normalized;
+      return parseLegacyApiKeys().map((key, index) => ({
+        id: `legacy_key_${index + 1}`,
+        label: defaultKeyLabel(index),
+        key
+      }));
+    }
+
+    function collectApiKeyPoolFromForm() {
+      const pool = [];
+      const seen = new Set();
+      document.querySelectorAll('.api-key-row').forEach((row, index) => {
+        const key = row.querySelector('.api-key-secret-input')?.value.trim() || '';
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        const label = row.querySelector('.api-key-note-input')?.value.trim() || defaultKeyLabel(index);
+        pool.push({
+          id: row.dataset.keyId || createKeyId(),
+          label,
+          key
+        });
+      });
+      return normalizeApiKeyPool(pool);
+    }
+
+    function syncLegacyApiKeys(pool) {
+      const keys = pool.map(item => item.key);
       if (keys.length) {
         localStorage.setItem('apiqik_key', keys[0]);
         localStorage.setItem(API_KEYS_STORAGE, JSON.stringify(keys));
@@ -946,6 +1009,28 @@
         localStorage.removeItem('apiqik_key');
         localStorage.removeItem(API_KEYS_STORAGE);
       }
+    }
+
+    function saveApiKeyPool(pool) {
+      const previousIds = new Set(parseStoredApiKeyPool().map(item => item.id));
+      const normalized = normalizeApiKeyPool(pool);
+      if (normalized.length) {
+        localStorage.setItem(API_KEY_POOL_STORAGE, JSON.stringify(normalized));
+      } else {
+        localStorage.removeItem(API_KEY_POOL_STORAGE);
+      }
+      syncLegacyApiKeys(normalized);
+
+      const storedActiveIds = parseStoredActiveKeyIds();
+      const validIds = new Set(normalized.map(item => item.id));
+      const activeIds = storedActiveIds === null
+        ? normalized.map(item => item.id)
+        : storedActiveIds.filter(id => validIds.has(id));
+      const activeSet = new Set(activeIds);
+      normalized.forEach(item => {
+        if (!previousIds.has(item.id)) activeSet.add(item.id);
+      });
+      localStorage.setItem(ACTIVE_API_KEY_IDS_STORAGE, JSON.stringify([...activeSet].filter(id => validIds.has(id))));
     }
 
     function normalizeHistoryLoadLimit(value) {
@@ -963,31 +1048,41 @@
       });
     }
 
-    function addApiKeyField(value = '') {
+    function addApiKeyField(item = {}) {
       const list = document.getElementById('apiqikKeyList');
-      const id = `apiqik_key_backup_${Date.now()}_${list.children.length}`;
+      const id = `apiqik_key_${Date.now()}_${list.children.length}`;
+      const itemId = item.id || createKeyId();
       const row = document.createElement('div');
       row.className = 'api-key-row';
+      row.dataset.keyId = itemId;
       row.innerHTML = `
-        <input id="${id}" class="backup-api-key-input" type="password" placeholder="备用 API Key" autocomplete="off" />
-        <button class="toggle-vis" data-target="${id}" type="button" title="显示/隐藏">
-          <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-            <circle cx="12" cy="12" r="3" />
-          </svg>
-        </button>
-        <button class="remove-api-key" type="button" title="删除备用 API Key">&times;</button>
+        <input class="api-key-note-input" type="text" placeholder="${defaultKeyLabel(list.children.length)}" autocomplete="off" />
+        <div class="api-key-secret-wrap">
+          <input id="${id}" class="api-key-secret-input" type="password" placeholder="sk-..." autocomplete="off" />
+          <button class="toggle-vis" data-target="${id}" type="button" title="显示/隐藏">
+            <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          </button>
+          <button class="remove-api-key" type="button" title="删除 API Key">&times;</button>
+        </div>
       `;
       list.appendChild(row);
-      row.querySelector('input').value = value;
+      row.querySelector('.api-key-note-input').value = item.label || '';
+      row.querySelector('.api-key-secret-input').value = item.key || '';
       bindToggleButton(row.querySelector('.toggle-vis'));
       row.querySelector('.remove-api-key').addEventListener('click', () => row.remove());
     }
 
-    function renderApiKeyFields(keys) {
+    function renderApiKeyFields(pool) {
       const list = document.getElementById('apiqikKeyList');
       list.innerHTML = '';
-      keys.slice(1).forEach(key => addApiKeyField(key));
+      if (pool.length) {
+        pool.forEach(item => addApiKeyField(item));
+      } else {
+        addApiKeyField();
+      }
     }
 
     // 页面加载时从 localStorage 回填
@@ -1000,18 +1095,18 @@
       });
       const historyLimit = normalizeHistoryLoadLimit(localStorage.getItem(HISTORY_LOAD_LIMIT_STORAGE) || DEFAULT_HISTORY_LOAD_LIMIT);
       document.getElementById(HISTORY_LOAD_LIMIT_STORAGE).value = String(historyLimit);
-      const apiKeys = parseStoredApiKeys();
-      document.getElementById('apiqik_key').value = apiKeys[0] || '';
-      renderApiKeyFields(apiKeys);
+      renderApiKeyFields(parseStoredApiKeyPool());
       updateStatusBar();
     }
 
     function updateStatusBar() {
-      const hasApiKey = parseStoredApiKeys().length > 0;
+      const apiKeyCount = parseStoredApiKeyPool().length;
+      const hasApiKey = apiKeyCount > 0;
       const r2Keys = ['cf_access_key', 'cf_secret_key', 'cf_account_id', 'cf_bucket', 'cf_public_url'];
       const hasR2 = r2Keys.every(k => !!localStorage.getItem(k));
 
       document.getElementById('dot-api').className = `status-dot ${hasApiKey ? 'ok' : 'bad'}`;
+      document.querySelector('#dot-api').parentElement.lastChild.textContent = hasApiKey ? `APIQIK Key ${apiKeyCount} 个` : 'APIQIK Key';
       document.getElementById('dot-r2').className = `status-dot ${hasR2 ? 'ok' : (r2Keys.some(k => !!localStorage.getItem(k)) ? 'bad' : 'none')}`;
     }
 
@@ -1020,8 +1115,8 @@
       const previousHistoryLimit = normalizeHistoryLoadLimit(localStorage.getItem(HISTORY_LOAD_LIMIT_STORAGE) || DEFAULT_HISTORY_LOAD_LIMIT);
 
       LEGACY_KEYS.forEach(k => localStorage.removeItem(k));
-      const apiKeys = collectApiKeysFromForm();
-      saveApiKeys(apiKeys);
+      const apiKeyPool = collectApiKeyPoolFromForm();
+      saveApiKeyPool(apiKeyPool);
       CONFIG_KEYS.forEach(k => {
         const el = document.getElementById(k);
         if (el) {
@@ -1038,7 +1133,7 @@
       document.getElementById(HISTORY_LOAD_LIMIT_STORAGE).value = String(historyLimit);
       const historyLimitChanged = historyLimit !== previousHistoryLimit;
 
-      if (!apiKeys.length) {
+      if (!apiKeyPool.length) {
         showToast('APIQIK Key 未填写，生成功能将无法使用', true);
         hasError = true;
       }
@@ -1060,7 +1155,6 @@
         if (el) el.value = '';
       });
       document.getElementById(HISTORY_LOAD_LIMIT_STORAGE).value = String(DEFAULT_HISTORY_LOAD_LIMIT);
-      document.getElementById('apiqik_key').value = '';
       renderApiKeyFields([]);
       updateStatusBar();
       showToast('配置已清除');

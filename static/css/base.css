@@ -236,6 +236,12 @@
       flex: 0 0 260px;
     }
 
+    .command-field--keys {
+      width: 122px;
+      flex: 0 0 122px;
+      position: relative;
+    }
+
     .command-field--concurrency {
       width: 96px;
       flex-shrink: 0;
@@ -243,10 +249,149 @@
 
     .command-settings {
       display: grid;
-      grid-template-columns: 260px 96px;
+      grid-template-columns: 260px 122px 96px;
       align-items: end;
       gap: 14px;
       min-width: 0;
+    }
+
+    .prompt-section-title {
+      margin-bottom: 12px;
+    }
+
+    .key-selector {
+      position: relative;
+    }
+
+    .key-selector-btn {
+      width: 100%;
+      height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 0 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--surface-input);
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    }
+
+    .key-selector-btn::after {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-right: 1.5px solid currentColor;
+      border-bottom: 1.5px solid currentColor;
+      transform: translateY(-2px) rotate(45deg);
+      flex: 0 0 auto;
+      opacity: 0.75;
+    }
+
+    .key-selector-btn:hover,
+    .key-selector-btn[aria-expanded="true"] {
+      border-color: var(--border-strong);
+      background: var(--surface-elevated);
+      box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.12);
+    }
+
+    .key-selector-popover {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      z-index: 40;
+      width: 286px;
+      max-width: min(286px, calc(100vw - 32px));
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      background: var(--surface-elevated);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .key-selector-popover[hidden] {
+      display: none;
+    }
+
+    .key-selector-list {
+      display: grid;
+      gap: 4px;
+      max-height: 230px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .key-selector-hint {
+      margin: 7px 2px 2px;
+      color: color-mix(in srgb, var(--ink-secondary) 72%, transparent);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .key-selector-option {
+      min-height: 34px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 8px;
+      border-radius: 8px;
+      color: var(--ink);
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .key-selector-option:hover {
+      background: var(--surface-secondary);
+    }
+
+    .key-selector-option input {
+      width: 16px;
+      height: 16px;
+      flex: 0 0 auto;
+      accent-color: var(--accent);
+    }
+
+    .key-selector-option span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .key-selector-empty {
+      padding: 10px 8px;
+      color: var(--ink-secondary);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .key-selector-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .key-selector-actions button,
+    .key-selector-actions a {
+      border: none;
+      background: transparent;
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      padding: 4px 2px;
+    }
+
+    .key-selector-actions a {
+      margin-left: auto;
     }
 
     .command-actions {
@@ -1521,15 +1666,25 @@
 
       .command-settings {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 92px;
+        grid-template-columns: minmax(0, 1fr) 112px;
         width: 100%;
         gap: 10px;
       }
 
       .command-field--model,
+      .command-field--keys,
       .command-field--concurrency {
         width: auto;
         flex: 1 1 auto;
+      }
+
+      .command-field--model {
+        grid-column: 1 / -1;
+      }
+
+      .key-selector-popover {
+        left: auto;
+        right: 0;
       }
 
       .command-actions .btn-primary {
@@ -1655,6 +1810,10 @@
       .command-settings,
       .gallery {
         grid-template-columns: 1fr;
+      }
+
+      .command-field--model {
+        grid-column: auto;
       }
 
       .run-list {
