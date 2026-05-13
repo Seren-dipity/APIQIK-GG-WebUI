@@ -66,20 +66,55 @@ Windows 用户也可以运行 `启动.bat`。它会调用 `scripts/launcher.ps1`
 
 ## Docker / Hugging Face
 
-项目根目录的 `Dockerfile` 使用 `python:3.10-slim`：
+项目根目录的 `Dockerfile` 使用 `python:3.10-slim`，容器内默认监听 `7860`：
+
+本地构建并运行：
 
 ```bash
 docker build -t apiqik-webui .
-docker run --rm -p 7860:7860 apiqik-webui
+docker run --rm -p 8080:7860 -v "$PWD/output:/app/output" apiqik-webui
 ```
+
+从 GitHub Container Registry 拉取并运行：
+
+```bash
+docker pull ghcr.io/seren-dipity/apiqik-gg-webui:latest
+docker run --rm -p 8080:7860 -v "$PWD/output:/app/output" ghcr.io/seren-dipity/apiqik-gg-webui:latest
+```
+
+如果需要把 `.env` 中的服务端环境变量传入容器：
+
+```bash
+docker run --rm -p 8080:7860 --env-file .env -v "$PWD/output:/app/output" ghcr.io/seren-dipity/apiqik-gg-webui:latest
+```
+
+也可以使用 Compose：
+
+```bash
+docker compose up -d --build
+docker compose logs -f
+docker compose down
+```
+
+Compose 默认把宿主机 `8080` 映射到容器内 `7860`。如果需要换宿主机端口，可以在 `.env` 中设置：
+
+```env
+APIQIK_HOST_PORT=8090
+```
+
+Compose 会自动读取项目根目录的 `.env` 用于变量替换；没有 `.env` 时也可以直接启动，只是公共 R2 相关环境变量为空。
+
+`output/` 是运行期持久化目录，包含生成结果、历史记录、上传索引和审计日志。直接 `docker run` 时建议挂载 `-v "$PWD/output:/app/output"`，否则容器删除后这些数据也会消失。
+
+推送到 GitHub 后，`.github/workflows/docker-publish.yml` 会在 `main` 分支和 `v*` 标签上自动构建并发布镜像到 `ghcr.io/seren-dipity/apiqik-gg-webui`。如果首次发布后别人无法拉取，需要在 GitHub 仓库的 Packages 页面把该 Package visibility 调整为 Public。
 
 容器默认执行：
 
 ```bash
-python main.py
+python -m uvicorn main:app --host 0.0.0.0 --port 7860
 ```
 
-README 顶部保留了 Hugging Face Space metadata，默认端口为 `7860`。
+README 顶部保留了 Hugging Face Space metadata，默认端口为 `7860`，可继续作为 Hugging Face Docker Space 使用。
 
 ## 配置模型
 

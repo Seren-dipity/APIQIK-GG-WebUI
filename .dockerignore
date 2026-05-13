@@ -1,0 +1,13 @@
+.git
+.github
+.agents
+.codex
+.env
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.playwright-cli/
+logs/
+output/
+scratch/
+tests/

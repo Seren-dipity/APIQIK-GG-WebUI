@@ -1,0 +1,15 @@
+services:
+  apiqik:
+    build: .
+    image: apiqik-webui:local
+    ports:
+      - "${APIQIK_HOST_PORT:-8080}:7860"
+    environment:
+      CF_ACCESS_KEY: ${CF_ACCESS_KEY:-}
+      CF_SECRET_KEY: ${CF_SECRET_KEY:-}
+      CF_ACCOUNT_ID: ${CF_ACCOUNT_ID:-}
+      CF_BUCKET: ${CF_BUCKET:-}
+      CF_PUBLIC_URL: ${CF_PUBLIC_URL:-}
+    volumes:
+      - ./output:/app/output
+    restart: unless-stopped
