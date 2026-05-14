@@ -732,6 +732,9 @@ async def _run_batch(task_id: str, req: GenerateRequest):
 
             # 推送成功事件
             image_infos = [_result_media_info(p, req.session_id, media_type="video" if is_video else "image") for p in saved]
+            for info in image_infos:
+                info["successful_key_label"] = key_label
+                info["successful_key_number"] = key_number
             append_history_images(task_id, image_infos, req.session_id)
             _push({
                 "type": "result",

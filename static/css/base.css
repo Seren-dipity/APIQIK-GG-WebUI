@@ -1342,6 +1342,15 @@
       overflow-wrap: anywhere;
     }
 
+    .image-key {
+      color: var(--ink-secondary);
+      opacity: 0.78;
+      overflow: hidden;
+      text-align: right;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .image-meta a {
       color: var(--accent);
       text-decoration: none;

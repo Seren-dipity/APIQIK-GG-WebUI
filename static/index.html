@@ -1781,6 +1781,9 @@
       const isVideo = mediaType === "video";
       const sizeLabel = image.size_label || "大小读取中";
       const dimensionsLabel = isVideo ? "视频" : (image.dimensions_label || "尺寸读取中");
+      const detailsLabel = `${dimensionsLabel} · ${sizeLabel}`;
+      const successfulKeyLabel = String(image.successful_key_label || "").trim();
+      const keyLabel = successfulKeyLabel ? `Key：${successfulKeyLabel}` : "";
       const durationLabel = image.duration ? `${image.duration}s` : "";
       const preview = isVideo
         ? `<div class="preview video-preview" data-url="${image.url}" data-media-type="${mediaType}"><video src="${image.url}" controls playsinline preload="metadata"></video></div>`
@@ -1794,8 +1797,8 @@
               <a href="${image.url}" download>下载</a>
             </div>
             <div class="image-details">
-              <span>${dimensionsLabel}</span>
-              <span>${sizeLabel}</span>
+              <span>${escapeHtml(detailsLabel)}</span>
+              ${keyLabel ? `<span class="image-key" title="${escapeHtml(keyLabel)}">${escapeHtml(keyLabel)}</span>` : ""}
             </div>
           </div>
         </article>
